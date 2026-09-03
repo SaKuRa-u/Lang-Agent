@@ -5,7 +5,7 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, AnyMessage
 
 from src.state import normalize_ticker
 from src.universe import parse_batch_request
@@ -29,7 +29,7 @@ class BatchState(TypedDict):
     ranked: list[str]
     picks: list[dict]
     summary: str
-    messages: Annotated[list, add_messages]
+    messages: Annotated[list[AnyMessage], add_messages]
 
 
 def parse_node(state: BatchState) -> dict:

@@ -1,4 +1,5 @@
 from typing import Annotated, TypedDict
+from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
 
@@ -10,7 +11,7 @@ class AgentState(TypedDict):
     report: str
     recommendation: str
     history: list[str]
-    messages: Annotated[list, add_messages]
+    messages: Annotated[list[AnyMessage], add_messages]
 
 
 def normalize_ticker(ticker: str) -> str:
@@ -37,4 +38,4 @@ class StockState(TypedDict, total=False):
     picks: list[dict]
     summary: str
     history: list[str]
-    messages: Annotated[list, add_messages]
+    messages: Annotated[list[AnyMessage], add_messages]
