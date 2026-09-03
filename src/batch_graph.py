@@ -38,10 +38,15 @@ def parse_node(state: BatchState) -> dict:
 
 
 def _scan_one(ticker: str) -> dict:
+    from src.validate import validate_row
+
     t = normalize_ticker(ticker)
     f = market_mod.get_fundamentals(t)
     score, reasons = score_fundamentals(f)
-    return {"ticker": t, "fundamentals": f, "score": score, "reasons": reasons}
+    flags = validate_row(t, f)
+    f["_flags"] = flags
+    return {"ticker": t, "fundamentals": f, "score": score,
+            "reasons": reasons, "flags": flags}
 
 
 def scan_node(state: BatchState) -> dict:
@@ -68,7 +73,7 @@ def _deepdive_one(row: dict) -> dict:
     return {
         "ticker": row["ticker"], "report": sub["report"],
         "recommendation": sub["recommendation"], "score": row["score"],
-        "reasons": row["reasons"],
+        "reasons": row["reasons"], "flags": row.get("flags", []),
     }
 
 
@@ -96,19 +101,25 @@ def _hist_str(f: dict) -> str:
     return "n/a"
 
 
+def _pick_brief(p: dict) -> str:
+    flag_txt = ""
+    if p.get("flags"):
+        flag_txt = f"\n⚠ Flag data: {'; '.join(p['flags'])}"
+    return f"### {p['ticker']} -> {p['recommendation']}\n{p['report']}{flag_txt}"
+
+
 def summarize_node(state: BatchState) -> dict:
     lines = ["| Rank | Ticker | Skor | 1 Lot | Hist 1thn | Alasan |",
              "|---|---|---|---|---|---|"]
     for i, r in enumerate(state.get("scanned", []), 1):
         f = r.get("fundamentals", {})
+        why = list(r["reasons"]) + [f"⚠ {fl}" for fl in r.get("flags", [])]
         lines.append(
             f"| {i} | {r['ticker']} | {r['score']:.1f} | {_lot_price(f)} | "
-            f"{_hist_str(f)} | {'; '.join(r['reasons'])} |"
+            f"{_hist_str(f)} | {'; '.join(why)} |"
         )
     table = "\n".join(lines)
-    briefs = "\n\n".join(
-        f"### {p['ticker']} -> {p['recommendation']}\n{p['report']}" for p in state.get("picks", [])
-    )
+    briefs = "\n\n".join(_pick_brief(p) for p in state.get("picks", []))
     uni = ("watchlist default (pesan user tidak menyebut ticker)"
            if state.get("fallback") else "sesuai permintaan user")
     llm = get_llm()
@@ -132,6 +143,8 @@ def summarize_node(state: BatchState) -> dict:
         "berlabel jelas 'ekstrapolasi statistik, bukan prediksi; kinerja masa lalu "
         "tidak menjamin masa depan'.\n"
         "5) Bila user tanya platform: kriteria umum saja, tanpa klaim mutlak.\n"
+        "6) Bila ada flag ⚠ pada tabel/pick: cantumkan di bagian risiko dan "
+        "turunkan keyakinan rekomendasi terkait.\n"
         f"Akhiri dengan: {DISCLAIMER}"
     )
     res = llm.invoke(prompt)

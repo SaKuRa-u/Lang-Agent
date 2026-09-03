@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage
 
 DEFAULT_TICKER = "BBCA.JK"
 MAX_STEPS = 12
-SINGLE_FRESH = {"news": [], "fundamentals": {}, "sentiment": "",
+SINGLE_FRESH = {"news": [], "fundamentals": {}, "flags": [], "sentiment": "",
                 "report": "", "recommendation": ""}
 BATCH_FRESH = {"scanned": [], "ranked": [], "picks": [], "summary": ""}
 GUIDE_TEXT = (

@@ -8,6 +8,7 @@ DISCLAIMER = "Bukan nasihat finansial. Lakukan riset mandiri."
 
 def reporter(state: AgentState) -> dict:
     llm = get_llm()
+    flags = state.get("flags") or state.get("fundamentals", {}).get("_flags") or []
     prompt = (
         "Buat laporan saham IDX dalam Bahasa Indonesia.\n"
         f"Ticker: {state['ticker']}\n"
@@ -15,6 +16,7 @@ def reporter(state: AgentState) -> dict:
         f"Sentimen: {state.get('sentiment', '')}\n"
         "Format: Ringkasan, Data Fundamental, Sentimen Berita, Risiko, "
         "Rekomendasi (BELI/TUNGGU/JANGAN) + confidence.\n"
+        f"Temuan validasi data: {flags or 'bersih'} — sebutkan eksplisit bila tidak bersih.\n"
         "Bila diminta proyeksi: jangkar pada data historis di Fundamental "
         "(ret_1y, cagr_3y, volatility, max_drawdown) dengan 3 skenario "
         "(pesimis/basis/optimis) berlabel 'ekstrapolasi, bukan prediksi'.\n"

@@ -6,6 +6,15 @@ _TTL = 600
 TRADING_DAYS = 252
 
 
+def _finite(x):
+    """NaN/invalid -> None (harga NaN umum di ticker IDX)."""
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, (int, float)) and x == x:
+        return float(x)
+    return None
+
+
 def history_stats(hist) -> dict:
     """Statistik historis dari DataFrame harga (kolom Close).
 
@@ -47,9 +56,15 @@ def get_fundamentals(ticker: str) -> dict:
         t = yf.Ticker(ticker)
         info = t.info or {}
         hist = t.history(period="3y")
-        price = float(hist["Close"].iloc[-1]) if len(hist) else info.get("currentPrice")
-        ma50 = float(hist["Close"].rolling(50).mean().iloc[-1]) if len(hist) >= 50 else None
-        ma200 = float(hist["Close"].rolling(200).mean().iloc[-1]) if len(hist) >= 200 else None
+        try:
+            close = hist["Close"].dropna()
+        except Exception:
+            close = hist["Close"] if len(hist) else []
+        price = _finite(close.iloc[-1]) if len(close) else None
+        if price is None:
+            price = _finite(info.get("currentPrice"))
+        ma50 = _finite(close.rolling(50).mean().iloc[-1]) if len(close) >= 50 else None
+        ma200 = _finite(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
         dy = info.get("dividendYield")
         if isinstance(dy, (int, float)) and dy > 1:
             # yfinance tak konsisten: kadang persen (8.06) bukan fraksi (0.0806).

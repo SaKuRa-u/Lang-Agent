@@ -7,6 +7,7 @@ class AgentState(TypedDict):
     ticker: str
     news: list[dict]
     fundamentals: dict
+    flags: list[str]
     sentiment: str
     report: str
     recommendation: str
@@ -31,6 +32,7 @@ class StockState(TypedDict, total=False):
     fallback: bool
     news: list[dict]
     fundamentals: dict
+    flags: list[str]
     sentiment: str
     report: str
     recommendation: str
