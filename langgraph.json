@@ -1,8 +1,7 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "agent": "./src/graph.py:graph",
-    "batch": "./src/batch_graph.py:batch_graph"
+    "agent": "./src/graph.py:graph"
   },
   "env": ".env"
 }

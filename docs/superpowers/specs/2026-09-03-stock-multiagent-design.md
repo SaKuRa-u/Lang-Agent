@@ -48,8 +48,9 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 
 ## 6. LangGraph Studio
 
-- `langgraph.json`: `{"dependencies": ["."], "graphs": {"agent": "./src/graph.py:graph"}, "env": ".env"}`.
-- Jalankan: `langgraph dev` lalu buka Studio, pilih graph `agent`, input `{"ticker": "BBCA.JK"}`.
+- `langgraph.json`: `{"dependencies": ["."], "graphs": {"agent": "./src/graph.py:graph"}, "env": ".env"}` — SATU graph saja.
+- Jalankan: `langgraph dev` lalu buka Studio, pilih graph `agent`.
+  Input single lawas `{"ticker": "BBCA.JK"}` tetap jalan; input baru `{"request": "analisa BBCA, BBRI top 3"}` masuk router.
 
 ## 7. Error handling
 
@@ -79,10 +80,14 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - CLI: `python main.py BBCA.JK --hitl` tampilkan sentimen + fundamental, prompt `lanjut ke rekomendasi? [y/n]`; `y` resume dengan `thread_id` sama, `n` batal.
 - Studio: graph `agent` (`./src/graph.py:graph`, `langgraph.json` tidak berubah) jalan tanpa interrupt/checkpointer — eksplorasi tanpa pause.
 - Artefak `*.sqlite*` ter-gitignore; jangan commit `.env`, checkpoints, atau `.superpowers/`.
-## 11. Fase D — Batch mode (multi-ticker)
+## 11. Fase D — Batch mode (multi-ticker, SATU graph)
+
+- Satu pintu via `request`/messages + node `router` di `src/graph.py` (bukan graph terpisah):
+  request 0-1 ticker (atau input lawas `ticker` langsung) -> jalur single (supervisor);
+  request >1 ticker / universe LQ45 -> jalur batch (scan -> rank -> deepdive -> summarize).
 
 - Input bebas via messages: `python main.py --batch "analisa BBCA, BBRI, TLKM top 5"`.
 - Parser tanpa LLM (`src/universe.py:parse_batch_request`): token `.JK` selalu diterima; kode 4 huruf diterima bila ada di KNOWN (WATCHLIST + LQ45) agar kata umum tak jadi ticker; "LQ45" -> universe 45 emiten; "TOP N" -> top_n (default 5); kosong -> fallback WATCHLIST.
 - Two-stage hemat LLM: tahap 1 scan fundamental paralel (~2 dtk/ticker) + skor deterministik (`src/scoring.py:score_fundamentals`: PER, PBV, dividen, MA50, posisi 52w) -> ranking + tabel; tahap 2 deep-dive (berita + sentimen + reporter existing) hanya top-N; tahap 3 `summarize` susun leaderboard + bedah picks + rekomendasi.
-- Graph `src/batch_graph.py:batch_graph` (parse -> scan -> rank -> deepdive -> summarize), terdaftar di `langgraph.json` sebagai graph `"batch"`; fundamental finalis dipakai ulang dari hasil scan (tanpa refetch).
+- Graph `src/batch_graph.py:batch_graph` tetap ada untuk reuse node + CLI `--batch`, tapi TIDAK didaftarkan di `langgraph.json` (Studio hanya tampilkan satu graph `agent`).
 - Bahasa Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
