@@ -7,3 +7,4 @@ langgraph_api/
 *.egg-info/
 *.sqlite*
 .superpowers/
+.langgraph_api/
