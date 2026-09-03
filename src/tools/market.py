@@ -3,6 +3,38 @@ import yfinance as yf
 
 _cache: dict[str, tuple[float, dict]] = {}
 _TTL = 600
+TRADING_DAYS = 252
+
+
+def history_stats(hist) -> dict:
+    """Statistik historis dari DataFrame harga (kolom Close).
+
+    Return 1 thn, CAGR ~3 thn, volatilitas tahunan, max drawdown —
+    murni deskriptif (fakta masa lalu, bukan prediksi).
+    """
+    try:
+        close = hist["Close"].dropna()
+    except Exception:
+        return {}
+    n = len(close)
+    if n < 2:
+        return {}
+    last = float(close.iloc[-1])
+    out: dict = {}
+    base = float(close.iloc[-252]) if n > TRADING_DAYS else float(close.iloc[0])
+    if base > 0:
+        out["ret_1y"] = last / base - 1
+    if n > 30:
+        years = n / TRADING_DAYS
+        first = float(close.iloc[0])
+        if first > 0 and years > 0:
+            out["cagr_3y"] = (last / first) ** (1 / years) - 1
+    if n >= 5:
+        rets = close.pct_change().dropna()
+        if len(rets) > 1:
+            out["volatility"] = float(rets.std() * (TRADING_DAYS ** 0.5))
+        out["max_drawdown"] = float((close / close.cummax() - 1).min())
+    return out
 
 
 def get_fundamentals(ticker: str) -> dict:
@@ -14,7 +46,7 @@ def get_fundamentals(ticker: str) -> dict:
     try:
         t = yf.Ticker(ticker)
         info = t.info or {}
-        hist = t.history(period="6mo")
+        hist = t.history(period="3y")
         price = float(hist["Close"].iloc[-1]) if len(hist) else info.get("currentPrice")
         ma50 = float(hist["Close"].rolling(50).mean().iloc[-1]) if len(hist) >= 50 else None
         ma200 = float(hist["Close"].rolling(200).mean().iloc[-1]) if len(hist) >= 200 else None
@@ -35,6 +67,7 @@ def get_fundamentals(ticker: str) -> dict:
             "ma200": ma200,
             "name": info.get("longName") or info.get("shortName"),
         }
+        data.update(history_stats(hist))
     except Exception as e:
         data = {"ticker": ticker, "error": f"data tidak tersedia: {e}"}
 

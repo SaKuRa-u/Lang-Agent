@@ -15,6 +15,9 @@ def reporter(state: AgentState) -> dict:
         f"Sentimen: {state.get('sentiment', '')}\n"
         "Format: Ringkasan, Data Fundamental, Sentimen Berita, Risiko, "
         "Rekomendasi (BELI/TUNGGU/JANGAN) + confidence.\n"
+        "Bila diminta proyeksi: jangkar pada data historis di Fundamental "
+        "(ret_1y, cagr_3y, volatility, max_drawdown) dengan 3 skenario "
+        "(pesimis/basis/optimis) berlabel 'ekstrapolasi, bukan prediksi'.\n"
         f"Akhiri dengan: {DISCLAIMER}"
     )
     res = llm.invoke(prompt)

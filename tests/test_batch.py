@@ -99,5 +99,6 @@ def test_summarize_prompt_answers_user_request():
     prompt = m.return_value.invoke.call_args[0][0]
     assert "budget 100rb" in prompt
     assert "1 Lot" in prompt and "Rp677.500" in prompt
+    assert "Hist 1thn" in prompt and "ekstrapolasi" in prompt
     assert "JANGAN janjikan return" in prompt
     assert out["summary"] == "Ringkasan."

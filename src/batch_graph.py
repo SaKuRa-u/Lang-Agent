@@ -89,12 +89,21 @@ def _lot_price(f: dict) -> str:
     return "n/a"
 
 
+def _hist_str(f: dict) -> str:
+    r = (f or {}).get("ret_1y")
+    if isinstance(r, (int, float)):
+        return f"{r:+.1%}/thn"
+    return "n/a"
+
+
 def summarize_node(state: BatchState) -> dict:
-    lines = ["| Rank | Ticker | Skor | 1 Lot | Alasan |", "|---|---|---|---|---|"]
+    lines = ["| Rank | Ticker | Skor | 1 Lot | Hist 1thn | Alasan |",
+             "|---|---|---|---|---|---|"]
     for i, r in enumerate(state.get("scanned", []), 1):
-        lot = _lot_price(r.get("fundamentals", {}))
+        f = r.get("fundamentals", {})
         lines.append(
-            f"| {i} | {r['ticker']} | {r['score']:.1f} | {lot} | {'; '.join(r['reasons'])} |"
+            f"| {i} | {r['ticker']} | {r['score']:.1f} | {_lot_price(f)} | "
+            f"{_hist_str(f)} | {'; '.join(r['reasons'])} |"
         )
     table = "\n".join(lines)
     briefs = "\n\n".join(
@@ -117,8 +126,11 @@ def summarize_node(state: BatchState) -> dict:
         "beberapa bulan, atau platform berfitur fraksional/odd-lot — kriteria umum: "
         "terdaftar OJK, fee transparan; tanpa menjamin).\n"
         "4) Bila user tanya proyeksi keuntungan: JANGAN janjikan return; beri tabel "
-        "ILUSTRASI skenario (mis. 6%/10%/15% p.a. atas total setoran) berlabel jelas "
-        "'ilustrasi, bukan prediksi'.\n"
+        "ILUSTRASI 3 skenario berjangkar data historis dari tabel/fundamental "
+        "(ret_1y, cagr_3y, volatility, max_drawdown) — pesimis ≈ basis − volatilitas, "
+        "basis ≈ CAGR historis, optimis ≈ basis + volatilitas — atas total setoran, "
+        "berlabel jelas 'ekstrapolasi statistik, bukan prediksi; kinerja masa lalu "
+        "tidak menjamin masa depan'.\n"
         "5) Bila user tanya platform: kriteria umum saja, tanpa klaim mutlak.\n"
         f"Akhiri dengan: {DISCLAIMER}"
     )
