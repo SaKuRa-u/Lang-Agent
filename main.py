@@ -35,7 +35,30 @@ def run_batch(text: str):
     print(out.get("summary", ""))
 
 
+def run_backtest_cli(tickers: list[str], years: int = 3):
+    from src.backtest import run_backtest
+    from src.universe import parse_batch_request
+
+    if not tickers:
+        tickers = parse_batch_request("")["tickers"]
+    print(run_backtest(tickers, years))
+
+
 def main():
+    if "--backtest" in sys.argv:
+        i = sys.argv.index("--backtest")
+        rest = [a for a in sys.argv[1:i] + sys.argv[i + 1:] if not a.startswith("--")]
+        tickers, years = [], 3
+        for a in rest:
+            if a.startswith("years="):
+                try:
+                    years = max(1, min(int(a.split("=", 1)[1]), 10))
+                except ValueError:
+                    pass
+            else:
+                tickers.append(a)
+        run_backtest_cli(tickers, years)
+        return
     if "--batch" in sys.argv:
         i = sys.argv.index("--batch")
         text = " ".join(a for a in sys.argv[1:i] + sys.argv[i + 1:] if not a.startswith("--"))

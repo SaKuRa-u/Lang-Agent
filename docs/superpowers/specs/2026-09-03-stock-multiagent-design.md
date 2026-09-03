@@ -142,3 +142,16 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - `fundamentals.as_of` (tanggal close valid terakhir) + instruksi cantumkan
   di laporan agar run bisa dibandingkan; reporter/critic/summarize pakai
   temperature 0.
+
+## 15. Backtest walk-forward (tanpa lookahead)
+
+- `src/backtest.py`: keputusan tiap kuartal memakai HANYA data <= T
+  (`features_at` dari `close[:T]`); verdict via `rule_verdict` yang sama
+  dengan produksi; forward return 63 hari bursa per keputusan.
+- Asumsi terbuka: PER/PBV/dividen kini dianggap konstan; regime netral;
+  dividen tidak masuk return (diremehkan); benchmark buy-hold IHSG.
+- CLI: `python main.py --backtest BBCA.JK BBRI.JK years=3` (ticker
+  dinormalisasi otomatis; yang datanya kurang dilewati dengan catatan).
+- Hasil sampel nyata: BELI agregat rata2 -0.1% (win 43%) vs IHSG -5.7% —
+  strategi tidak memukau secara absolut, tapi mengalahkan pasar yang turun;
+  win-rate <50% mengingatkan risiko tetap dominan.
