@@ -4,7 +4,7 @@ from src.agents.news_collector import news_collector
 from src.agents.fundamental import fundamental_analyst
 from src.agents.sentiment import sentiment_analyst
 from src.agents.reporter import reporter
-from src.universe import parse_batch_request
+from src.universe import parse_batch_request, has_analysis_intent
 from src.batch_graph import scan_node, rank_node, deepdive_node, summarize_node
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import AIMessage
@@ -50,10 +50,18 @@ def router(state: StockState) -> dict:
         parsed = parse_batch_request(req)
         changed = req != (state.get("last_request") or "")
         if parsed["fallback"] and not parsed["universe"]:
-            # Pesan tanpa ticker: lanjutkan ticker thread bila ada, else guide.
+            # Pesan tanpa ticker: niat analisa -> screening watchlist;
+            # lanjutkan ticker thread bila ada; else guide (sapaan/obrolan).
+            if has_analysis_intent(req):
+                upd = {"mode": "batch", "request": req, "last_request": req,
+                       "tickers": parsed["tickers"], "top_n": parsed["top_n"],
+                       "fallback": True}
+                if changed:
+                    upd.update({**BATCH_FRESH, "history": []})
+                return upd
             if state.get("ticker"):
-                upd: dict = {"mode": "single", "request": req,
-                             "last_request": req, "ticker": state.get("ticker")}
+                upd = {"mode": "single", "request": req,
+                       "last_request": req, "ticker": state.get("ticker")}
                 if changed:
                     upd.update({**SINGLE_FRESH, "history": []})
                 return upd

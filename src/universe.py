@@ -20,6 +20,20 @@ LQ45 = [
 
 KNOWN = set(WATCHLIST) | set(LQ45)
 
+# Kata penanda niat analisa (substring, case-insensitive via upper).
+ANALYSIS_KEYWORDS = {
+    "ANALISA", "ANALISIS", "CARI", "BANDING", "PROYEKSI", "DIVIDEN",
+    "REKOMENDASI", "REKOMENDASIKAN", "SAHAM", "RINGKAS", "UNTUNG",
+    "KEUNTUNGAN", "BAGUS", "TERBAIK", "PILIH", "SARAN", "INVESTASI",
+    "STRATEGI", "BANDINGKAN", "SCREENING", "SCREENER",
+}
+
+
+def has_analysis_intent(text: str) -> bool:
+    t = (text or "").upper()
+    return any(kw in t for kw in ANALYSIS_KEYWORDS)
+
+
 # Kata umum yang terlihat seperti ticker tapi bukan.
 STOPWORDS = {
     "TOP", "DAN", "ATAU", "SAHAM", "ANALISA", "ANALISIS", "BANDING",

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 from langgraph.graph import END
 
 from src.graph import router, smart_supervisor
+from src.universe import WATCHLIST, has_analysis_intent
 
 
 def _base(**kw):
@@ -66,3 +67,18 @@ def test_router_followup_without_ticker_continues_thread_ticker():
     out = router({**old, "request": "bagaimana risikonya?"})
     assert out["mode"] == "single"
     assert out["ticker"] == "BBCA.JK"
+
+
+def test_router_analysis_intent_without_ticker_screens_watchlist():
+    assert has_analysis_intent("carikan yang dividennya bagus dan proyeksikan keuntungan")
+    out = router(_base(
+        request="carikan yang dividennya bagus dan proyeksikan keuntungan 1 tahun"))
+    assert out["mode"] == "batch"
+    assert [t.removesuffix(".JK") for t in out["tickers"]] == WATCHLIST
+    assert out["fallback"] is True
+
+
+def test_router_greeting_stays_guide():
+    assert not has_analysis_intent("halo, apa kabar?")
+    out = router(_base(request="halo, apa kabar?"))
+    assert out["mode"] == "guide"
