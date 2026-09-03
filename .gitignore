@@ -5,3 +5,5 @@ langgraph_api/
 *.pyc
 
 *.egg-info/
+*.sqlite*
+.superpowers/

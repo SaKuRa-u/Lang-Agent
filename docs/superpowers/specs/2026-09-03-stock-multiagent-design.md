@@ -70,3 +70,13 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - Konsistensi: state field dipakai semua agen; ticker `.JK` konsisten; env names konsisten dengan `.env.example` + `llm.py`.
 - Scope: v1 tanpa HITL/memory, sesuai keputusan A. Upgrade C terpisah.
 - Ambiguitas: sumber "gratis saja" di-lock ke yfinance+RSS, bukan Tavily/NewsAPI.
+
+## 10. Fase C — HITL + Memory
+
+- Checkpointer: `src/graph.py:build_hitl_graph(db_path="checkpoints.sqlite")` memakai `SqliteSaver` (sqlite); `graph = build_graph()` tanpa checkpointer agar Studio aman.
+- Interrupt: `build_graph(checkpointer, interrupt_before=["reporter"])` pause sebelum node `reporter`; resume via `g.invoke(None, config=cfg)`.
+- `thread_id` = ticker ternormalisasi `.JK` (cth `BBCA.JK`); memory/history terisolasi per ticker.
+- CLI: `python main.py BBCA.JK --hitl` tampilkan sentimen + fundamental, prompt `lanjut ke rekomendasi? [y/n]`; `y` resume dengan `thread_id` sama, `n` batal.
+- Studio: graph `agent` (`./src/graph.py:graph`, `langgraph.json` tidak berubah) jalan tanpa interrupt/checkpointer — eksplorasi tanpa pause.
+- Artefak `*.sqlite*` ter-gitignore; jangan commit `.env`, checkpoints, atau `.superpowers/`.
+- Bahasa Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
