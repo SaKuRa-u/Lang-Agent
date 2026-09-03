@@ -130,3 +130,15 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
   saran nabung N bulan bila kurang, warning horizon <12 bln); summarize
   menyajikan blok alokasi + dana minimal. Reksadana/fraksional hanya
   alternatif edukatif (tanpa data live).
+
+## 14. Verdict deterministik + tanggal data
+
+- Masalah: verdict LLM flip-flop antar run (ASII BELI lalu TUNGGU).
+- Obat: `src/verdict.py:rule_verdict` (murni, di-test) — skor>=5 & bersih &
+  regime netral/bullish -> BELI; skor>=5 terhalang vol ekstrem/bearish ->
+  TUNGGU; skor>=2 -> TUNGGU; else JANGAN; flag pemblokir/error -> TUNGGU.
+- `reporter` memakai verdict guardrail sebagai keputusan resmi (temperature 0);
+  LLM hanya narasi + boleh OVERRIDE 1 kalimat. Dissent disalurkan via critic.
+- `fundamentals.as_of` (tanggal close valid terakhir) + instruksi cantumkan
+  di laporan agar run bisa dibandingkan; reporter/critic/summarize pakai
+  temperature 0.

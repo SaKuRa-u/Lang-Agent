@@ -113,6 +113,10 @@ def get_fundamentals(ticker: str) -> dict:
             "ma200": ma200,
             "name": info.get("longName") or info.get("shortName"),
         }
+        try:
+            data["as_of"] = str(close.index[-1].date()) if len(close) else None
+        except Exception:
+            data["as_of"] = None
         data.update(history_stats(hist))
     except Exception as e:
         data = {"ticker": ticker, "error": f"data tidak tersedia: {e}"}

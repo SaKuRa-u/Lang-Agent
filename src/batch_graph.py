@@ -141,10 +141,14 @@ def summarize_node(state: BatchState) -> dict:
         alloc_txt = "\nRencana budget ala-Bibit:\n" + allocation_text(plan) + "\n"
     risk = state.get("risk") or "moderat"
     horizon = state.get("horizon_months")
-    llm = get_llm()
+    dates = sorted({(r.get("fundamentals") or {}).get("as_of")
+                    for r in state.get("scanned", [])} - {None})
+    llm = get_llm(temperature=0)
     prompt = (
         "Buat laporan ringkas batch saham IDX dalam Bahasa Indonesia.\n"
         f"Permintaan user (JAWAB LANGSUNG bila berisi pertanyaan): {state.get('request') or '-'}\n"
+        f"Tanggal data: {', '.join(dates) if dates else 'tidak tersedia'} "
+        "(cantumkan di laporan agar run bisa dibandingkan).\n"
         f"Universe: {uni}. Top-N: {state.get('top_n')}.\n"
         f"Profil risiko user: {risk}."
         + (f" Horizon: {horizon} bulan.\n" if horizon else "\n")

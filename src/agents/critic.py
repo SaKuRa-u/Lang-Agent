@@ -8,7 +8,7 @@ DISCLAIMER = "Bukan nasihat finansial. Lakukan riset mandiri."
 
 def critic(state: AgentState) -> dict:
     """Red-team rekomendasi reporter: cari lubang, kalibrasi keyakinan."""
-    llm = get_llm()
+    llm = get_llm(temperature=0)
     prompt = (
         "Kamu pengkritik independen analis saham IDX. Tugas: cari lubang dalam "
         "analisa berikut, JANGAN mengulang pujian reporter.\n"
