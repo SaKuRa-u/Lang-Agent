@@ -18,7 +18,23 @@ def run_hitl(ticker, db_path="checkpoints.sqlite"):
     print(f"\n=== {out['ticker']} -> {out.get('recommendation')} ===\n{out.get('report', '')}")
 
 
+def run_batch(text: str):
+    from src.batch_graph import batch_graph
+    init = {"request": text, "tickers": [], "top_n": 5, "fallback": False,
+            "scanned": [], "ranked": [], "picks": [], "summary": "", "messages": []}
+    out = batch_graph.invoke(init)
+    if out.get("fallback"):
+        print("(tidak ada ticker terdeteksi, pakai watchlist default)")
+    print(f"\n=== BATCH ({len(out['ranked'])} ticker, top {out.get('top_n')}) ===\n")
+    print(out.get("summary", ""))
+
+
 def main():
+    if "--batch" in sys.argv:
+        i = sys.argv.index("--batch")
+        text = " ".join(a for a in sys.argv[1:i] + sys.argv[i + 1:] if not a.startswith("--"))
+        run_batch(text)
+        return
     args = [a for a in sys.argv[1:] if a != "--hitl"]
     use_hitl = "--hitl" in sys.argv
     ticker = normalize_ticker(args[0] if args else "BBCA.JK")
