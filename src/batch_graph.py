@@ -5,6 +5,7 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
+from langchain_core.messages import AIMessage
 
 from src.state import normalize_ticker
 from src.universe import parse_batch_request
@@ -99,7 +100,8 @@ def summarize_node(state: BatchState) -> dict:
         f"Akhiri dengan: {DISCLAIMER}"
     )
     res = llm.invoke(prompt)
-    return {"summary": str(res.content)}
+    summary = str(res.content)
+    return {"summary": summary, "messages": [AIMessage(content=summary)]}
 
 
 def build_batch_graph():

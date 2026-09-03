@@ -50,7 +50,12 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 
 - `langgraph.json`: `{"dependencies": ["."], "graphs": {"agent": "./src/graph.py:graph"}, "env": ".env"}` — SATU graph saja.
 - Jalankan: `langgraph dev` lalu buka Studio, pilih graph `agent`.
-  Input single lawas `{"ticker": "BBCA.JK"}` tetap jalan; input baru `{"request": "analisa BBCA, BBRI top 3"}` masuk router.
+  Cara chat (disarankan): ketik pesan biasa di panel chat Studio
+  (cth `"analisa BBCA"`, `"analisa BBCA, BBRI top 3"`); router membaca pesan
+  human terakhir bila field `request` kosong. Hasil akhir dibalas sebagai
+  pesan AI (`reporter`/`summarize` append `AIMessage`).
+  Input JSON lawas `{"ticker": "BBCA.JK"}` tetap jalan; input kosong total
+  dibalas panduan (mode `guide`, tanpa panggil LLM).
 
 ## 7. Error handling
 

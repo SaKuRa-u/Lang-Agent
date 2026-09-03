@@ -6,13 +6,37 @@ from src.agents.reporter import reporter
 from src.universe import parse_batch_request
 from src.batch_graph import scan_node, rank_node, deepdive_node, summarize_node
 from langgraph.graph import StateGraph, END
+from langchain_core.messages import AIMessage
 
 DEFAULT_TICKER = "BBCA.JK"
+GUIDE_TEXT = (
+    "Halo! Saya analis saham IDX. Cukup tulis pesan biasa, contoh:\n"
+    '- "analisa BBCA" (single)\n'
+    '- "analisa BBCA, BBRI, TLKM top 3" (batch)\n'
+    '- "top 5 LQ45"\n'
+    "Hasil dalam Bahasa Indonesia + bukan nasihat finansial."
+)
+
+
+def request_text(state: StockState) -> str:
+    """Ambil request: field `request` dulu, lalu pesan human terakhir."""
+    req = (state.get("request") or "").strip()
+    if req:
+        return req
+    for m in reversed(state.get("messages", [])):
+        if isinstance(m, dict):
+            kind = m.get("type", m.get("role", ""))
+            if kind in ("human", "user"):
+                return str(m.get("content", ""))
+        elif getattr(m, "type", "") == "human":
+            return str(getattr(m, "content", ""))
+    return ""
 
 
 def router(state: StockState) -> dict:
-    """Satu pintu: request berisi >1 ticker/universe -> batch, sisanya single."""
-    req = (state.get("request") or "").strip()
+    """Satu pintu: request berisi >1 ticker/universe -> batch, ticker -> single,
+    kosong total -> guide (tanpa panggil LLM)."""
+    req = request_text(state)
     if req:
         parsed = parse_batch_request(req)
         if len(parsed["tickers"]) <= 1 and not parsed["universe"]:
@@ -24,12 +48,23 @@ def router(state: StockState) -> dict:
             "top_n": parsed["top_n"],
             "fallback": parsed["fallback"],
         }
-    # Input lawas Studio/CLI: ticker langsung tanpa request.
-    return {"mode": "single", "ticker": normalize_ticker(state.get("ticker") or DEFAULT_TICKER)}
+    if state.get("ticker"):
+        # Input lawas Studio/CLI: ticker langsung tanpa request.
+        return {"mode": "single", "ticker": normalize_ticker(state.get("ticker"))}
+    return {"mode": "guide"}
 
 
 def route_mode(state: StockState) -> str:
-    return "supervisor" if state.get("mode") == "single" else "scan"
+    mode = state.get("mode")
+    if mode == "batch":
+        return "scan"
+    if mode == "guide":
+        return "guide"
+    return "supervisor"
+
+
+def guide(state: StockState) -> dict:
+    return {"messages": [AIMessage(content=GUIDE_TEXT)]}
 
 
 def supervisor(state: StockState) -> str:
@@ -49,6 +84,7 @@ def supervisor(state: StockState) -> str:
 def build_graph(checkpointer=None, interrupt_before=()):
     g = StateGraph(StockState)
     g.add_node("router", router)
+    g.add_node("guide", guide)
     g.add_node("supervisor", lambda s: {})
     g.add_node("news_collector", news_collector)
     g.add_node("fundamental_analyst", fundamental_analyst)
@@ -60,8 +96,10 @@ def build_graph(checkpointer=None, interrupt_before=()):
     g.add_node("summarize", summarize_node)
     g.set_entry_point("router")
     g.add_conditional_edges(
-        "router", route_mode, {"supervisor": "supervisor", "scan": "scan"}
+        "router", route_mode,
+        {"supervisor": "supervisor", "scan": "scan", "guide": "guide"},
     )
+    g.add_edge("guide", END)
     g.add_conditional_edges(
         "supervisor",
         supervisor,

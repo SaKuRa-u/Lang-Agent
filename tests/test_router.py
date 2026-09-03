@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 
-from src.graph import graph
+from langchain_core.messages import HumanMessage
+
+from src.graph import graph, GUIDE_TEXT
 
 
 def _base(**kw):
@@ -74,3 +76,25 @@ def test_request_multi_ticker_uses_batch_path():
     assert out["ranked"][0] == "BBCA.JK"
     assert len(out["picks"]) == 1
     assert "Bukan nasihat finansial" in out["summary"]
+
+
+def test_chat_message_drives_single_path():
+    p1, p2, p3, p4 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4:
+        m3.return_value.invoke.return_value = MagicMock(content="netral")
+        m4.return_value.invoke.return_value = MagicMock(
+            content="Laporan BELI. Bukan nasihat finansial.")
+        out = graph.invoke(_base(messages=[HumanMessage(content="tolong analisa BBCA")]))
+    assert out["mode"] == "single"
+    assert out["ticker"] == "BBCA.JK"
+    assert out["recommendation"] == "BELI"
+    # Hasil dibalas sebagai pesan AI agar tampil di chat Studio.
+    assert out["messages"][-1].type == "ai"
+    assert "Bukan nasihat finansial" in out["messages"][-1].content
+
+
+def test_empty_input_returns_guide_without_llm():
+    out = graph.invoke(_base())
+    assert out["mode"] == "guide"
+    assert out["messages"][-1].content == GUIDE_TEXT
+    assert out["report"] == "" and out["summary"] == ""
