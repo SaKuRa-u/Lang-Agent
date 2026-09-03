@@ -25,6 +25,9 @@ class BatchState(TypedDict):
     tickers: list[str]
     top_n: int
     fallback: bool
+    risk: str
+    horizon_months: int | None
+    budget_monthly: int | None
     scanned: list[dict]
     ranked: list[str]
     picks: list[dict]
@@ -34,7 +37,10 @@ class BatchState(TypedDict):
 
 def parse_node(state: BatchState) -> dict:
     parsed = parse_batch_request(state.get("request", ""))
-    return {"tickers": parsed["tickers"], "top_n": parsed["top_n"], "fallback": parsed["fallback"]}
+    return {"tickers": parsed["tickers"], "top_n": parsed["top_n"],
+            "fallback": parsed["fallback"], "risk": parsed["risk"],
+            "horizon_months": parsed["horizon_months"],
+            "budget_monthly": parsed["budget_monthly"]}
 
 
 def _scan_one(ticker: str) -> dict:
@@ -56,7 +62,9 @@ def scan_node(state: BatchState) -> dict:
 
 
 def rank_node(state: BatchState) -> dict:
-    ranked = sorted(state.get("scanned", []), key=lambda r: r["score"], reverse=True)
+    from src.budget import rank_for_risk
+
+    ranked = rank_for_risk(state.get("scanned", []), state.get("risk") or "moderat")
     return {"scanned": ranked, "ranked": [r["ticker"] for r in ranked]}
 
 
@@ -122,12 +130,26 @@ def summarize_node(state: BatchState) -> dict:
     briefs = "\n\n".join(_pick_brief(p) for p in state.get("picks", []))
     uni = ("watchlist default (pesan user tidak menyebut ticker)"
            if state.get("fallback") else "sesuai permintaan user")
+    from src.budget import plan_budget, allocation_text
+    alloc_txt = ""
+    if state.get("budget_monthly"):
+        rows = {r["ticker"]: r for r in state.get("scanned", [])}
+        items = [{"ticker": p["ticker"], "score": p.get("score", 0),
+                  "fundamentals": rows.get(p["ticker"], {}).get("fundamentals", {})}
+                 for p in state.get("picks", [])]
+        plan = plan_budget(state["budget_monthly"], items, state.get("horizon_months"))
+        alloc_txt = "\nRencana budget ala-Bibit:\n" + allocation_text(plan) + "\n"
+    risk = state.get("risk") or "moderat"
+    horizon = state.get("horizon_months")
     llm = get_llm()
     prompt = (
         "Buat laporan ringkas batch saham IDX dalam Bahasa Indonesia.\n"
         f"Permintaan user (JAWAB LANGSUNG bila berisi pertanyaan): {state.get('request') or '-'}\n"
         f"Universe: {uni}. Top-N: {state.get('top_n')}.\n"
-        f"Konteks pasar: {state.get('regime') or 'tidak tersedia'} — "
+        f"Profil risiko user: {risk}."
+        + (f" Horizon: {horizon} bulan.\n" if horizon else "\n")
+        + alloc_txt
+        + f"Konteks pasar: {state.get('regime') or 'tidak tersedia'} — "
         "kaitkan rekomendasi dengan regime (cth IHSG di bawah MA50 / Rupiah "
         "melemah -> defensif, turunkan keyakinan cyclical).\n"
         f"Tabel ranking:\n{table}\n\n"
@@ -148,6 +170,9 @@ def summarize_node(state: BatchState) -> dict:
         "5) Bila user tanya platform: kriteria umum saja, tanpa klaim mutlak.\n"
         "6) Bila ada flag ⚠ pada tabel/pick: cantumkan di bagian risiko dan "
         "turunkan keyakinan rekomendasi terkait.\n"
+        "7) Bila ada blok Rencana budget: sajikan apa adanya (alokasi lot, dana "
+        "minimal mulai per saham, sisa, catatan) dan kaitkan dengan profil risiko "
+        "user; reksadana/fraksional hanya sebagai alternatif edukatif.\n"
         f"Akhiri dengan: {DISCLAIMER}"
     )
     res = llm.invoke(prompt)

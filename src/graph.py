@@ -67,13 +67,18 @@ def _route(state: StockState) -> dict:
             if has_analysis_intent(req):
                 upd = {"mode": "batch", "request": req, "last_request": req,
                        "tickers": parsed["tickers"], "top_n": parsed["top_n"],
-                       "fallback": True}
+                       "fallback": True, "risk": parsed["risk"],
+                       "horizon_months": parsed["horizon_months"],
+                       "budget_monthly": parsed["budget_monthly"]}
                 if changed:
                     upd.update({**BATCH_FRESH, "history": []})
                 return upd
             if state.get("ticker"):
                 upd = {"mode": "single", "request": req,
-                       "last_request": req, "ticker": state.get("ticker")}
+                       "last_request": req, "ticker": state.get("ticker"),
+                       "risk": parsed["risk"],
+                       "horizon_months": parsed["horizon_months"],
+                       "budget_monthly": parsed["budget_monthly"]}
                 if changed:
                     upd.update({**SINGLE_FRESH, "history": []})
                 return upd
@@ -81,19 +86,24 @@ def _route(state: StockState) -> dict:
         if len(parsed["tickers"]) <= 1 and not parsed["universe"]:
             t = parsed["tickers"][0] if parsed["tickers"] else DEFAULT_TICKER
             upd = {"mode": "single", "request": req, "last_request": req,
-                   "ticker": normalize_ticker(t)}
+                   "ticker": normalize_ticker(t), "risk": parsed["risk"],
+                   "horizon_months": parsed["horizon_months"],
+                   "budget_monthly": parsed["budget_monthly"]}
             if changed:
                 upd.update({**SINGLE_FRESH, "history": []})
             return upd
         upd = {"mode": "batch", "request": req, "last_request": req,
                "tickers": parsed["tickers"],
-               "top_n": parsed["top_n"], "fallback": parsed["fallback"]}
+               "top_n": parsed["top_n"], "fallback": parsed["fallback"],
+               "risk": parsed["risk"], "horizon_months": parsed["horizon_months"],
+               "budget_monthly": parsed["budget_monthly"]}
         if changed:
             upd.update({**BATCH_FRESH, "history": []})
         return upd
     if state.get("ticker"):
         # Input lawas Studio/CLI: ticker langsung tanpa request (selalu fresh).
         return {"mode": "single", "ticker": normalize_ticker(state.get("ticker")),
+                "risk": "moderat", "horizon_months": None, "budget_monthly": None,
                 **SINGLE_FRESH, "history": []}
     return {"mode": "guide"}
 

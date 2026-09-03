@@ -34,6 +34,54 @@ def has_analysis_intent(text: str) -> bool:
     return any(kw in t for kw in ANALYSIS_KEYWORDS)
 
 
+def parse_risk(text: str) -> str:
+    """konservatif | moderat (default) | agresif dari kata kunci."""
+    t = (text or "").upper()
+    if "KONSERVATIF" in t or "AMAN" in t or "HATI-HATI" in t or "HATI HATI" in t:
+        return "konservatif"
+    if "AGRESIF" in t or "BERANI" in t or "GROWTH" in t:
+        return "agresif"
+    return "moderat"
+
+
+def parse_horizon_months(text: str) -> int | None:
+    """'2 tahun'->24, '6 bulan'->6, else None."""
+    import re as _re
+    t = (text or "").upper()
+    m = _re.search(r"(\d+)\s*(TAHUN|THN|BULAN|BLN)", t)
+    if not m:
+        return None
+    n = int(m.group(1))
+    return n * 12 if m.group(2) in ("TAHUN", "THN") else n
+
+
+def parse_budget_idr(text: str) -> int | None:
+    """'100rb'/'100 ribu'/'Rp100.000'->100000, '1jt'/'2 juta'->jutaan.
+
+    Hanya bila ada konteks uang (Rp atau satuan rb/jt/M) — angka biasa
+    seperti 'top 5' / '1 tahun' diabaikan.
+    """
+    import re as _re
+    raw = text or ""
+    t = raw.upper()
+    m = _re.search(r"(RP\s*)?(\d[\d.]*)\s*(RB|RIBU|JT|JUTA|M\b|MILYAR|MILIAR)\b", t)
+    if m:
+        num = float(m.group(2).replace(".", ""))
+        unit = m.group(3)
+        if unit in ("RB", "RIBU"):
+            num *= 1_000
+        elif unit in ("JT", "JUTA"):
+            num *= 1_000_000
+        else:
+            num *= 1_000_000_000
+        return int(num) if num > 0 else None
+    m = _re.search(r"RP\s*(\d[\d.]*)", t)
+    if m:
+        num = int(m.group(1).replace(".", ""))
+        return num if num > 0 else None
+    return None
+
+
 # Kata umum yang terlihat seperti ticker tapi bukan.
 STOPWORDS = {
     "TOP", "DAN", "ATAU", "SAHAM", "ANALISA", "ANALISIS", "BANDING",
@@ -49,12 +97,13 @@ def normalize_code(code: str) -> str:
 
 
 def parse_batch_request(text: str, default_top_n: int = 5) -> dict:
-    """Ekstrak {tickers, top_n, universe} dari pesan bebas.
+    """Ekstrak {tickers, top_n, universe, risk, horizon_months, budget_monthly}.
 
     - Token `.JK` eksplisit selalu diterima.
     - Kode 4 huruf diterima bila ada di KNOWN (anti false-positive kata umum).
     - "LQ45" -> universe LQ45; "TOP N" -> top_n.
     - Kosong -> fallback WATCHLIST + flag fallback=True.
+    - risk: konservatif/moderat/agresif; horizon: bulan; budget: rupiah/bulan.
     """
     t = (text or "").upper()
     m = re.search(r"TOP\s*(\d+)", t)
@@ -84,4 +133,7 @@ def parse_batch_request(text: str, default_top_n: int = 5) -> dict:
         fallback = True
         tickers = [normalize_code(c) for c in WATCHLIST]
 
-    return {"tickers": tickers, "top_n": top_n, "universe": universe, "fallback": fallback}
+    return {"tickers": tickers, "top_n": top_n, "universe": universe,
+            "fallback": fallback, "risk": parse_risk(text),
+            "horizon_months": parse_horizon_months(text),
+            "budget_monthly": parse_budget_idr(text)}

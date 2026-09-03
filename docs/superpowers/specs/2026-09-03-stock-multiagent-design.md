@@ -108,3 +108,25 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
   melanjutkan ticker thread bila ada, else mode `guide`.
 - `get_llm(temperature=...)` mendukung override (router pakai 0).
 - Test wajib mock `src.graph.get_llm` (tanpa network/LLM).
+
+## 13. Fase F–J — Validator, critic, riset, regime, fitur Bibit
+
+- F: `market.get_fundamentals` sanitasi NaN (close non-NaN terakhir + fallback
+  currentPrice); `src/validate.py:validate_row` hasilkan flags (harga hilang,
+  PER ganjil, dividen ekstrem, 0 berita, vol >60%); flags mengalir via
+  `fundamentals._flags` + state `flags`, wajib disebut di laporan.
+- G: `src/agents/critic.py:critic` red-team tiap rekomendasi single
+  (kelemahan + KEYAKINAN 0-100 + VERDIK SETUJU/TIDAK SETUJU), jalan otomatis
+  reporter -> critic, verdict kedua sebagai pesan AI.
+- H: `news.fetch_stock_news` multi-query (umum + dividen/laba) + dedupe link.
+  Jujur: tanpa key, Tavily/browser-live dicatat sebagai upgrade opsional.
+- I: `market.get_market_regime` (IHSG ^JKSE + USDIDR=X, cache 1 jam),
+  diambil sekali di `router` (bukan per node); prompt reporter/summarize
+  mengaitkan rekomendasi dengan regime.
+- J (ala-Bibit): `universe` parse risk/horizon/budget (`parse_risk`,
+  `parse_horizon_months`, `parse_budget_idr` — hanya bila konteks uang jelas);
+  `budget.rank_for_risk` (konservatif->dividen, agresif->CAGR, moderat->skor);
+  `budget.plan_budget` (lot bulanan per bobot skor, dana minimal = 1 lot,
+  saran nabung N bulan bila kurang, warning horizon <12 bln); summarize
+  menyajikan blok alokasi + dana minimal. Reksadana/fraksional hanya
+  alternatif edukatif (tanpa data live).

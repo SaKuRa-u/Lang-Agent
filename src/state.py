@@ -31,6 +31,9 @@ class StockState(TypedDict, total=False):
     tickers: list[str]
     top_n: int
     fallback: bool
+    risk: str
+    horizon_months: int | None
+    budget_monthly: int | None
     news: list[dict]
     fundamentals: dict
     flags: list[str]
