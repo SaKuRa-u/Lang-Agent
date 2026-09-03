@@ -4,6 +4,7 @@ from src.agents.news_collector import news_collector
 from src.agents.fundamental import fundamental_analyst
 from src.agents.sentiment import sentiment_analyst
 from src.agents.reporter import reporter
+from src.agents.critic import critic
 from src.universe import parse_batch_request, has_analysis_intent
 from src.batch_graph import scan_node, rank_node, deepdive_node, summarize_node
 from langgraph.graph import StateGraph, END
@@ -12,7 +13,7 @@ from langchain_core.messages import AIMessage
 DEFAULT_TICKER = "BBCA.JK"
 MAX_STEPS = 12
 SINGLE_FRESH = {"news": [], "fundamentals": {}, "flags": [], "sentiment": "",
-                "report": "", "recommendation": ""}
+                "report": "", "recommendation": "", "critique": ""}
 BATCH_FRESH = {"scanned": [], "ranked": [], "picks": [], "summary": ""}
 GUIDE_TEXT = (
     "Halo! Saya analis saham IDX. Cukup tulis pesan biasa, contoh:\n"
@@ -110,6 +111,8 @@ def supervisor(state: StockState) -> str:
         return "sentiment_analyst"
     if "reporter" not in done:
         return "reporter"
+    if "critic" not in done:
+        return "critic"
     return END
 
 
@@ -134,7 +137,8 @@ def smart_supervisor(state: StockState) -> str:
         f"sentimen={'ada' if state.get('sentiment') else 'belum'}, "
         f"laporan={'ada' if state.get('report') else 'belum'}.\n"
         "Aturan: kumpulkan berita + fundamental + sentimen dulu (lewati yang "
-        "error/bermasalah), lalu reporter tepat sekali, lalu DONE."
+        "error/bermasalah), lalu reporter tepat sekali, lalu DONE. "
+        "(Node critic berjalan otomatis setelah reporter.)"
     )
     try:
         out = str(llm.invoke(prompt).content).strip().lower()
@@ -158,6 +162,7 @@ def build_graph(checkpointer=None, interrupt_before=()):
     g.add_node("fundamental_analyst", fundamental_analyst)
     g.add_node("sentiment_analyst", sentiment_analyst)
     g.add_node("reporter", reporter)
+    g.add_node("critic", critic)
     g.add_node("scan", scan_node)
     g.add_node("rank", rank_node)
     g.add_node("deepdive", deepdive_node)
@@ -176,11 +181,14 @@ def build_graph(checkpointer=None, interrupt_before=()):
             "fundamental_analyst": "fundamental_analyst",
             "sentiment_analyst": "sentiment_analyst",
             "reporter": "reporter",
+            "critic": "critic",
             END: END,
         },
     )
-    for n in ["news_collector", "fundamental_analyst", "sentiment_analyst", "reporter"]:
+    for n in ["news_collector", "fundamental_analyst", "sentiment_analyst"]:
         g.add_edge(n, "supervisor")
+    g.add_edge("reporter", "critic")
+    g.add_edge("critic", "supervisor")
     g.add_edge("scan", "rank")
     g.add_edge("rank", "deepdive")
     g.add_edge("deepdive", "summarize")

@@ -23,6 +23,7 @@ def _mock_single_chain():
               return_value={"ticker": "BBCA.JK", "price": 100}),
         patch("src.agents.sentiment.get_llm"),
         patch("src.agents.reporter.get_llm"),
+        patch("src.agents.critic.get_llm"),
         patch("src.graph.get_llm"),
     )
 
@@ -38,10 +39,12 @@ def _smart_sequence(mg):
 
 
 def test_request_single_ticker_uses_single_path():
-    p1, p2, p3, p4, p5 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4, p5 as mg:
+    p1, p2, p3, p4, p5, p6 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mc, p6 as mg:
         _smart_sequence(mg)
         m3.return_value.invoke.return_value = MagicMock(content="netral")
+        mc.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU. Bukan nasihat finansial.")
         m4.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
         out = graph.invoke(_base(request="analisa BBCA dong"))
@@ -52,10 +55,12 @@ def test_request_single_ticker_uses_single_path():
 
 
 def test_legacy_ticker_input_still_single():
-    p1, p2, p3, p4, p5 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4, p5 as mg:
+    p1, p2, p3, p4, p5, p6 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mc, p6 as mg:
         _smart_sequence(mg)
         m3.return_value.invoke.return_value = MagicMock(content="netral")
+        mc.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU. Bukan nasihat finansial.")
         m4.return_value.invoke.return_value = MagicMock(
             content="Laporan TUNGGU. Bukan nasihat finansial.")
         out = graph.invoke(_base(ticker="BBCA.JK"))
@@ -92,10 +97,12 @@ def test_request_multi_ticker_uses_batch_path():
 
 
 def test_chat_message_drives_single_path():
-    p1, p2, p3, p4, p5 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4, p5 as mg:
+    p1, p2, p3, p4, p5, p6 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mc, p6 as mg:
         _smart_sequence(mg)
         m3.return_value.invoke.return_value = MagicMock(content="netral")
+        mc.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU. Bukan nasihat finansial.")
         m4.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
         out = graph.invoke(_base(messages=[HumanMessage(content="tolong analisa BBCA")]))

@@ -11,6 +11,7 @@ class AgentState(TypedDict):
     sentiment: str
     report: str
     recommendation: str
+    critique: str
     history: list[str]
     messages: Annotated[list[AnyMessage], add_messages]
 
@@ -36,6 +37,7 @@ class StockState(TypedDict, total=False):
     sentiment: str
     report: str
     recommendation: str
+    critique: str
     scanned: list[dict]
     ranked: list[str]
     picks: list[dict]

@@ -24,15 +24,19 @@ def test_cli_resume_keeps_thread_id(monkeypatch, tmp_path, capsys):
          patch("src.agents.fundamental.get_fundamentals", return_value={"price": 1}), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
+         patch("src.agents.critic.get_llm") as m3, \
          patch("src.graph.get_llm") as mg:
         mg.return_value.invoke.side_effect = [
             MagicMock(content="news_collector"),
             MagicMock(content="fundamental_analyst"),
             MagicMock(content="sentiment_analyst"),
             MagicMock(content="reporter"),
+            MagicMock(content="DONE"),
         ]
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(content="Laporan BELI. Bukan nasihat finansial.")
+        m3.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU karena valuasi. Bukan nasihat finansial.")
         monkeypatch.setattr("builtins.input", lambda _: "y")
         cli.run_hitl("BBCA.JK", db_path=db)
     assert "BELI" in capsys.readouterr().out

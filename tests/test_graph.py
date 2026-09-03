@@ -16,3 +16,5 @@ def test_supervisor_routing():
     assert supervisor(s3) == "sentiment_analyst"
     s4 = {**s3, "history": ["news_collector", "fundamental_analyst", "sentiment_analyst"]}
     assert supervisor(s4) == "reporter"
+    s5 = {**s3, "history": ["news_collector", "fundamental_analyst", "sentiment_analyst", "reporter"]}
+    assert supervisor(s5) == "critic"
