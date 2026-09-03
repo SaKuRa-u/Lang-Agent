@@ -23,7 +23,7 @@ def supervisor(state: AgentState) -> str:
     return END
 
 
-def build_graph():
+def build_graph(checkpointer=None, interrupt_before=()):
     g = StateGraph(AgentState)
     g.add_node("supervisor", lambda s: {})
     g.add_node("news_collector", news_collector)
@@ -44,7 +44,18 @@ def build_graph():
     )
     for n in ["news_collector", "fundamental_analyst", "sentiment_analyst", "reporter"]:
         g.add_edge(n, "supervisor")
-    return g.compile()
+    return g.compile(checkpointer=checkpointer, interrupt_before=interrupt_before)
+
+
+def build_hitl_graph(db_path="checkpoints.sqlite"):
+    import sqlite3
+
+    from langgraph.checkpoint.sqlite import SqliteSaver
+
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+    checkpointer.setup()
+    return build_graph(checkpointer=checkpointer, interrupt_before=["reporter"])
 
 
 graph = build_graph()

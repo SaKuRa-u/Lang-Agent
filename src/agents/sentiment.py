@@ -13,4 +13,4 @@ def sentiment_analyst(state: AgentState) -> dict:
         "Jawab: POSITIF/NEGATIF/NETRAL + 3 bullet alasan.\n\n" + titles
     )
     res = llm.invoke(prompt)
-    return {"sentiment": res.content, "history": hist}
+    return {"sentiment": str(res.content), "history": hist}
