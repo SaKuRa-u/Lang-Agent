@@ -71,3 +71,33 @@ def test_batch_end_to_end_mocked():
     assert len(out["picks"]) == 1
     assert out["picks"][0]["ticker"] == "BBCA.JK"
     assert "Bukan nasihat finansial" in out["summary"]
+
+
+def test_score_percent_style_dividend_normalized():
+    f = {"per": 10, "pbv": 1.5, "dividendYield": 8.06, "price": 100,
+         "ma50": 90, "week52High": 200, "week52Low": 50}
+    s, reasons = score_fundamentals(f)
+    assert any("8.1%" in r for r in reasons)
+    assert s >= 2
+
+
+def test_summarize_prompt_answers_user_request():
+    from src.batch_graph import summarize_node
+
+    state = {"request": "budget 100rb per bulan, platform apa?",
+             "top_n": 1, "fallback": True,
+             "scanned": [{"ticker": "BBCA.JK", "score": 3.0,
+                          "reasons": ["PER wajar"],
+                          "fundamentals": {"price": 6775}}],
+             "picks": [{"ticker": "BBCA.JK", "report": "R",
+                        "recommendation": "TUNGGU", "score": 3.0,
+                        "reasons": ["PER wajar"]}],
+             "summary": "", "messages": []}
+    with patch("src.batch_graph.get_llm") as m:
+        m.return_value.invoke.return_value = MagicMock(content="Ringkasan.")
+        out = summarize_node(state)
+    prompt = m.return_value.invoke.call_args[0][0]
+    assert "budget 100rb" in prompt
+    assert "1 Lot" in prompt and "Rp677.500" in prompt
+    assert "JANGAN janjikan return" in prompt
+    assert out["summary"] == "Ringkasan."

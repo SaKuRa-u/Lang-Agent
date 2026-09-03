@@ -82,21 +82,44 @@ def deepdive_node(state: BatchState) -> dict:
     return {"picks": picks}
 
 
+def _lot_price(f: dict) -> str:
+    p = (f or {}).get("price")
+    if isinstance(p, (int, float)) and p > 0:
+        return f"Rp{int(p * 100):,}".replace(",", ".")
+    return "n/a"
+
+
 def summarize_node(state: BatchState) -> dict:
-    lines = ["| Rank | Ticker | Skor | Alasan |", "|---|---|---|---|"]
+    lines = ["| Rank | Ticker | Skor | 1 Lot | Alasan |", "|---|---|---|---|---|"]
     for i, r in enumerate(state.get("scanned", []), 1):
-        lines.append(f"| {i} | {r['ticker']} | {r['score']:.1f} | {'; '.join(r['reasons'])} |")
+        lot = _lot_price(r.get("fundamentals", {}))
+        lines.append(
+            f"| {i} | {r['ticker']} | {r['score']:.1f} | {lot} | {'; '.join(r['reasons'])} |"
+        )
     table = "\n".join(lines)
     briefs = "\n\n".join(
         f"### {p['ticker']} -> {p['recommendation']}\n{p['report']}" for p in state.get("picks", [])
     )
+    uni = ("watchlist default (pesan user tidak menyebut ticker)"
+           if state.get("fallback") else "sesuai permintaan user")
     llm = get_llm()
     prompt = (
         "Buat laporan ringkas batch saham IDX dalam Bahasa Indonesia.\n"
-        f"Top-N: {state.get('top_n')}. Tabel ranking:\n{table}\n\n"
+        f"Permintaan user (JAWAB LANGSUNG bila berisi pertanyaan): {state.get('request') or '-'}\n"
+        f"Universe: {uni}. Top-N: {state.get('top_n')}.\n"
+        f"Tabel ranking:\n{table}\n\n"
         f"Deep-dive finalis:\n{briefs}\n\n"
-        "Format: 1) Tabel leaderboard (salin apa adanya), 2) Bedah Top picks "
-        "(1-2 kalimat tiap pick + rekomendasi), 3) Rekomendasi akhir.\n"
+        "Aturan:\n"
+        "1) Salin tabel leaderboard apa adanya.\n"
+        "2) Bedah top picks (1-2 kalimat + rekomendasi tiap pick).\n"
+        "3) Bila user menyebut budget: bandingkan dengan kolom 1 Lot; bila budget "
+        "< 1 lot katakan jujur dan beri alternatif (saham <Rp1000/lembar, menabung "
+        "beberapa bulan, atau platform berfitur fraksional/odd-lot — kriteria umum: "
+        "terdaftar OJK, fee transparan; tanpa menjamin).\n"
+        "4) Bila user tanya proyeksi keuntungan: JANGAN janjikan return; beri tabel "
+        "ILUSTRASI skenario (mis. 6%/10%/15% p.a. atas total setoran) berlabel jelas "
+        "'ilustrasi, bukan prediksi'.\n"
+        "5) Bila user tanya platform: kriteria umum saja, tanpa klaim mutlak.\n"
         f"Akhiri dengan: {DISCLAIMER}"
     )
     res = llm.invoke(prompt)

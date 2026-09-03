@@ -18,13 +18,17 @@ def get_fundamentals(ticker: str) -> dict:
         price = float(hist["Close"].iloc[-1]) if len(hist) else info.get("currentPrice")
         ma50 = float(hist["Close"].rolling(50).mean().iloc[-1]) if len(hist) >= 50 else None
         ma200 = float(hist["Close"].rolling(200).mean().iloc[-1]) if len(hist) >= 200 else None
+        dy = info.get("dividendYield")
+        if isinstance(dy, (int, float)) and dy > 1:
+            # yfinance tak konsisten: kadang persen (8.06) bukan fraksi (0.0806).
+            dy = dy / 100
         data = {
             "ticker": ticker,
             "price": price,
             "per": info.get("trailingPE"),
             "pbv": info.get("priceToBook"),
             "marketCap": info.get("marketCap"),
-            "dividendYield": info.get("dividendYield"),
+            "dividendYield": dy,
             "week52High": info.get("fiftyTwoWeekHigh"),
             "week52Low": info.get("fiftyTwoWeekLow"),
             "ma50": ma50,

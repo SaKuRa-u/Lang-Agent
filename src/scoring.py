@@ -32,6 +32,8 @@ def score_fundamentals(f: dict) -> tuple[float, list[str]]:
             score -= 1; reasons.append(f"PBV sangat premium {pbv:.2f}x")
 
     dy = f.get("dividendYield") or 0
+    if isinstance(dy, (int, float)) and dy > 1:
+        dy = dy / 100  # toleransi bila sumber belum normalisasi
     if isinstance(dy, (int, float)) and dy > 0:
         if dy >= 0.05:
             score += 2; reasons.append(f"dividen {dy:.1%}")
