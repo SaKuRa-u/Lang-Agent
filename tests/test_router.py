@@ -91,10 +91,12 @@ def test_request_multi_ticker_uses_batch_path():
                return_value=[{"title": "x"}]), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
+         patch("src.batch_graph.critic_agent") as mc, \
          patch("src.batch_graph.get_llm") as m3:
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
+        mc.return_value = {"critique": "kritis"}
         m3.return_value.invoke.return_value = MagicMock(
             content="Ringkasan. Bukan nasihat finansial.")
         out = graph.invoke(_base(request="analisa BBCA BBRI top 1"))

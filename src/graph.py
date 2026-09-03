@@ -26,10 +26,12 @@ GUIDE_TEXT = (
 
 
 def request_text(state: StockState) -> str:
-    """Ambil request: field `request` dulu, lalu pesan human terakhir."""
-    req = (state.get("request") or "").strip()
-    if req:
-        return req
+    """Ambil request TERBARU: pesan human terakhir dulu, lalu field `request`.
+
+    Alasan: dalam 1 thread Studio pesan ke-2 dst masuk sebagai message baru
+    TANPA menimpa field `request` (field tetap berisi pesan pertama). Membaca
+    field dulu berarti pesan baru diabaikan -> perulangan request lama.
+    """
     for m in reversed(state.get("messages", [])):
         if isinstance(m, dict):
             kind = m.get("type", m.get("role", ""))
@@ -37,7 +39,7 @@ def request_text(state: StockState) -> str:
                 return str(m.get("content", ""))
         elif getattr(m, "type", "") == "human":
             return str(getattr(m, "content", ""))
-    return ""
+    return (state.get("request") or "").strip()
 
 
 def _with_regime(upd: dict) -> dict:

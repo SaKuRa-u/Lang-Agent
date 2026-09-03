@@ -14,6 +14,7 @@ from src.tools import market as market_mod
 from src.tools import news as news_mod
 from src.agents.sentiment import sentiment_analyst
 from src.agents.reporter import reporter
+from src.agents.critic import critic as critic_agent
 from src.llm import get_llm
 
 DISCLAIMER = "Bukan nasihat finansial. Lakukan riset mandiri."
@@ -68,27 +69,33 @@ def rank_node(state: BatchState) -> dict:
     return {"scanned": ranked, "ranked": [r["ticker"] for r in ranked]}
 
 
-def _deepdive_one(row: dict) -> dict:
-    """Analisa penuh 1 finalis: pakai fundamental hasil scan (tanpa refetch)."""
+def _deepdive_one(row: dict, regime=None) -> dict:
+    """Analisa penuh 1 finalis: berita + sentimen + reporter + critic."""
     sub = {
         "ticker": row["ticker"], "news": [], "fundamentals": row["fundamentals"],
+        "flags": row.get("flags", []), "regime": regime or {},
         "sentiment": "", "report": "", "recommendation": "",
-        "history": [], "messages": [],
+        "critique": "", "history": [], "messages": [],
     }
     sub["news"] = news_mod.fetch_stock_news(row["ticker"])
     sub.update(sentiment_analyst(sub))
     sub.update(reporter(sub))
+    sub.update(critic_agent(sub))
     return {
         "ticker": row["ticker"], "report": sub["report"],
-        "recommendation": sub["recommendation"], "score": row["score"],
-        "reasons": row["reasons"], "flags": row.get("flags", []),
+        "recommendation": sub["recommendation"], "critique": sub["critique"],
+        "score": row["score"], "reasons": row["reasons"],
+        "flags": row.get("flags", []),
     }
 
 
 def deepdive_node(state: BatchState) -> dict:
+    from functools import partial
+
     top = state.get("scanned", [])[: state.get("top_n", 5)]
+    regime = state.get("regime") or {}
     with ThreadPoolExecutor(max_workers=min(3, max(1, len(top)))) as pool:
-        picks = list(pool.map(_deepdive_one, top))
+        picks = list(pool.map(partial(_deepdive_one, regime=regime), top))
     # Kembalikan urutan ranking (thread pool tidak menjamin urutan).
     order = {r["ticker"]: i for i, r in enumerate(top)}
     picks.sort(key=lambda p: order.get(p["ticker"], 99))
@@ -113,7 +120,11 @@ def _pick_brief(p: dict) -> str:
     flag_txt = ""
     if p.get("flags"):
         flag_txt = f"\n⚠ Flag data: {'; '.join(p['flags'])}"
-    return f"### {p['ticker']} -> {p['recommendation']}\n{p['report']}{flag_txt}"
+    crit_txt = ""
+    if p.get("critique"):
+        crit_txt = f"\n🕵️ Penilaian independen: {p['critique']}"
+    return (f"### {p['ticker']} -> {p['recommendation']}\n"
+            f"{p['report']}{flag_txt}{crit_txt}")
 
 
 def summarize_node(state: BatchState) -> dict:

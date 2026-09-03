@@ -56,10 +56,12 @@ def test_batch_end_to_end_mocked():
          patch("src.tools.news.fetch_stock_news", return_value=[{"title": "x"}]), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
+         patch("src.batch_graph.critic_agent") as mc, \
          patch("src.batch_graph.get_llm") as m3:
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
+        mc.return_value = {"critique": "kritis"}
         m3.return_value.invoke.return_value = MagicMock(
             content="Ringkasan. Bukan nasihat finansial.")
         out = batch_graph.invoke({
@@ -79,6 +81,26 @@ def test_score_percent_style_dividend_normalized():
     s, reasons = score_fundamentals(f)
     assert any("8.1%" in r for r in reasons)
     assert s >= 2
+
+
+def test_deepdive_runs_critic_per_pick():
+    from src.batch_graph import deepdive_node
+
+    row = {"ticker": "BBCA.JK", "score": 5.0, "reasons": ["ok"],
+           "flags": [],
+           "fundamentals": {"ticker": "BBCA.JK", "price": 100.0, "per": 10.0,
+                            "pbv": 1.5, "dividendYield": 0.05}}
+    with patch("src.tools.news.fetch_stock_news",
+               return_value=[{"title": "x"}]), \
+         patch("src.agents.sentiment.get_llm") as m1, \
+         patch("src.agents.reporter.get_llm") as m2, \
+         patch("src.batch_graph.critic_agent") as mc:
+        m1.return_value.invoke.return_value = MagicMock(content="netral")
+        m2.return_value.invoke.return_value = MagicMock(
+            content="Laporan BELI. Bukan nasihat finansial.")
+        mc.side_effect = lambda s: {"critique": f"kritis {s['ticker']}"}
+        out = deepdive_node({"scanned": [row], "top_n": 5, "regime": {}})
+    assert out["picks"][0]["critique"] == "kritis BBCA.JK"
 
 
 def test_summarize_prompt_answers_user_request():

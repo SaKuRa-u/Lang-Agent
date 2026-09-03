@@ -91,3 +91,23 @@ def test_router_greeting_stays_guide():
     assert not has_analysis_intent("halo, apa kabar?")
     out = router(_base(request="halo, apa kabar?"))
     assert out["mode"] == "guide"
+
+
+def test_request_text_prefers_newest_human_message():
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from src.graph import request_text
+
+    state = _base(request="pesan lama dividen",
+                  messages=[HumanMessage(content="pesan lama dividen"),
+                            AIMessage(content="jawaban lama")])
+    assert request_text(state) == "pesan lama dividen"
+    state["messages"].append(HumanMessage(content="analisa capital gain BBRI"))
+    assert request_text(state) == "analisa capital gain BBRI"
+
+
+def test_second_message_in_same_thread_routes_fresh():
+    out = router(_base(request="analisa BBCA",
+                       last_request="analisa BBCA",
+                       messages=[]))
+    assert out["mode"] == "single" and "history" not in out
