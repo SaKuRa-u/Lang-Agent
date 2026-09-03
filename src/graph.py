@@ -6,6 +6,7 @@ from src.agents.sentiment import sentiment_analyst
 from src.agents.reporter import reporter
 from src.agents.critic import critic
 from src.universe import parse_batch_request, has_analysis_intent
+from src.tools.market import get_market_regime
 from src.batch_graph import scan_node, rank_node, deepdive_node, summarize_node
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import AIMessage
@@ -39,7 +40,17 @@ def request_text(state: StockState) -> str:
     return ""
 
 
-def router(state: StockState) -> dict:
+def _with_regime(upd: dict) -> dict:
+    """Regime pasar global (cache 1 jam) — sekali per run, bukan per node."""
+    if upd.get("mode") != "guide":
+        try:
+            upd["regime"] = get_market_regime()
+        except Exception:
+            upd["regime"] = {}
+    return upd
+
+
+def _route(state: StockState) -> dict:
     """Satu pintu: request berisi >1 ticker/universe -> batch, ticker -> single,
     kosong total -> guide (tanpa panggil LLM).
 
@@ -85,6 +96,11 @@ def router(state: StockState) -> dict:
         return {"mode": "single", "ticker": normalize_ticker(state.get("ticker")),
                 **SINGLE_FRESH, "history": []}
     return {"mode": "guide"}
+
+
+def router(state: StockState) -> dict:
+    """Entry graph: routing + regime pasar sekali per run."""
+    return _with_regime(_route(state))
 
 
 def route_mode(state: StockState) -> str:

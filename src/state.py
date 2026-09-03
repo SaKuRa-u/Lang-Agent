@@ -34,6 +34,7 @@ class StockState(TypedDict, total=False):
     news: list[dict]
     fundamentals: dict
     flags: list[str]
+    regime: dict
     sentiment: str
     report: str
     recommendation: str

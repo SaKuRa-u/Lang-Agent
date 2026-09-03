@@ -14,6 +14,7 @@ def reporter(state: AgentState) -> dict:
         f"Ticker: {state['ticker']}\n"
         f"Fundamental: {state.get('fundamentals', {})}\n"
         f"Sentimen: {state.get('sentiment', '')}\n"
+        f"Konteks pasar (IHSG/Rupiah): {state.get('regime') or 'tidak tersedia'}\n"
         "Format: Ringkasan, Data Fundamental, Sentimen Berita, Risiko, "
         "Rekomendasi (BELI/TUNGGU/JANGAN) + confidence.\n"
         f"Temuan validasi data: {flags or 'bersih'} — sebutkan eksplisit bila tidak bersih.\n"

@@ -1,6 +1,15 @@
 from unittest.mock import patch, MagicMock
+
+import pytest
+
 from src.graph import build_hitl_graph
 import main as cli
+
+
+@pytest.fixture(autouse=True)
+def _no_regime():
+    with patch("src.graph.get_market_regime", return_value={}):
+        yield
 
 
 def test_hitl_graph_pauses_before_reporter():

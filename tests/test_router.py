@@ -1,8 +1,15 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
 from langchain_core.messages import HumanMessage
 
 from src.graph import graph, GUIDE_TEXT
+
+
+@pytest.fixture(autouse=True)
+def _no_regime():
+    with patch("src.graph.get_market_regime", return_value={}):
+        yield
 
 
 def _base(**kw):

@@ -3,6 +3,8 @@ import yfinance as yf
 
 _cache: dict[str, tuple[float, dict]] = {}
 _TTL = 600
+_regime_cache: dict[str, tuple[float, dict]] = {}
+_REGIME_TTL = 3600
 TRADING_DAYS = 252
 
 
@@ -13,6 +15,35 @@ def _finite(x):
     if isinstance(x, (int, float)) and x == x:
         return float(x)
     return None
+
+
+def get_market_regime() -> dict:
+    """Konteks pasar gratis: tren IHSG + Rupiah via yfinance (cache 1 jam)."""
+    now = time.time()
+    if "r" in _regime_cache and now - _regime_cache["r"][0] < _REGIME_TTL:
+        return _regime_cache["r"][1]
+    out: dict = {}
+    try:
+        j = yf.Ticker("^JKSE").history(period="1y")["Close"].dropna()
+        if len(j) >= 2:
+            last = float(j.iloc[-1])
+            base = float(j.iloc[-252]) if len(j) > 252 else float(j.iloc[0])
+            ma = _finite(j.rolling(50).mean().iloc[-1]) if len(j) >= 50 else None
+            out["ihsg"] = {"ret_1y": last / base - 1 if base else None,
+                           "di_atas_ma50": (last > ma) if ma else None}
+    except Exception:
+        pass
+    try:
+        u = yf.Ticker("USDIDR=X").history(period="6mo")["Close"].dropna()
+        if len(u) >= 2:
+            last = float(u.iloc[-1])
+            ma = _finite(u.rolling(50).mean().iloc[-1]) if len(u) >= 50 else None
+            out["usdidr"] = {"kurs": last,
+                             "rupiah_melemah": (last > ma) if ma else None}
+    except Exception:
+        pass
+    _regime_cache["r"] = (now, out)
+    return out
 
 
 def history_stats(hist) -> dict:

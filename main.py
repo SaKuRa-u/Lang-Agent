@@ -20,7 +20,13 @@ def run_hitl(ticker, db_path="checkpoints.sqlite"):
 
 def run_batch(text: str):
     from src.batch_graph import batch_graph
+    from src.tools.market import get_market_regime
+    try:
+        regime = get_market_regime()
+    except Exception:
+        regime = {}
     init = {"request": text, "tickers": [], "top_n": 5, "fallback": False,
+            "regime": regime,
             "scanned": [], "ranked": [], "picks": [], "summary": "", "messages": []}
     out = batch_graph.invoke(init)
     if out.get("fallback"):

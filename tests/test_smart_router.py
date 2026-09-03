@@ -5,6 +5,15 @@ from src.graph import router, smart_supervisor
 from src.universe import WATCHLIST, has_analysis_intent
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_regime():
+    with patch("src.graph.get_market_regime", return_value={}):
+        yield
+
+
 def _base(**kw):
     state = {"request": "", "ticker": "", "tickers": [], "top_n": 5,
              "fallback": False, "news": [], "fundamentals": {},
