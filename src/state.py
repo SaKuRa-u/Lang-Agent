@@ -23,6 +23,7 @@ class StockState(TypedDict, total=False):
     """State gabungan: satu pintu untuk mode single dan batch."""
 
     request: str
+    last_request: str
     mode: str  # "single" | "batch"
     ticker: str
     tickers: list[str]

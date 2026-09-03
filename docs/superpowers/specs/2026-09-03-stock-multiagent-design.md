@@ -96,3 +96,15 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - Two-stage hemat LLM: tahap 1 scan fundamental paralel (~2 dtk/ticker) + skor deterministik (`src/scoring.py:score_fundamentals`: PER, PBV, dividen, MA50, posisi 52w) -> ranking + tabel; tahap 2 deep-dive (berita + sentimen + reporter existing) hanya top-N; tahap 3 `summarize` susun leaderboard + bedah picks + rekomendasi.
 - Graph `src/batch_graph.py:batch_graph` tetap ada untuk reuse node + CLI `--batch`, tapi TIDAK didaftarkan di `langgraph.json` (Studio hanya tampilkan satu graph `agent`).
 - Bahasa Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
+
+## 12. Fase E — Supervisor LLM + memori thread
+
+- `supervisor` (aturan history, deterministik) dipertahankan sebagai fallback;
+  routing live memakai `smart_supervisor`: 1 call LLM (`temperature=0`) per
+  putaran memilih news_collector/fundamental_analyst/sentiment_analyst/reporter/DONE.
+- Guard: maks 12 langkah -> END; output tak dikenal/error LLM -> fallback aturan.
+- `router` mencatat `last_request`: request baru di thread yang sama me-reset
+  progres (fresh run); request sama melanjutkan state thread. Pesan tanpa ticker
+  melanjutkan ticker thread bila ada, else mode `guide`.
+- `get_llm(temperature=...)` mendukung override (router pakai 0).
+- Test wajib mock `src.graph.get_llm` (tanpa network/LLM).

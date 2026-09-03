@@ -23,12 +23,24 @@ def _mock_single_chain():
               return_value={"ticker": "BBCA.JK", "price": 100}),
         patch("src.agents.sentiment.get_llm"),
         patch("src.agents.reporter.get_llm"),
+        patch("src.graph.get_llm"),
     )
 
 
+def _smart_sequence(mg):
+    mg.return_value.invoke.side_effect = [
+        MagicMock(content="news_collector"),
+        MagicMock(content="fundamental_analyst"),
+        MagicMock(content="sentiment_analyst"),
+        MagicMock(content="reporter"),
+        MagicMock(content="DONE"),
+    ]
+
+
 def test_request_single_ticker_uses_single_path():
-    p1, p2, p3, p4 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4:
+    p1, p2, p3, p4, p5 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mg:
+        _smart_sequence(mg)
         m3.return_value.invoke.return_value = MagicMock(content="netral")
         m4.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
@@ -40,8 +52,9 @@ def test_request_single_ticker_uses_single_path():
 
 
 def test_legacy_ticker_input_still_single():
-    p1, p2, p3, p4 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4:
+    p1, p2, p3, p4, p5 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mg:
+        _smart_sequence(mg)
         m3.return_value.invoke.return_value = MagicMock(content="netral")
         m4.return_value.invoke.return_value = MagicMock(
             content="Laporan TUNGGU. Bukan nasihat finansial.")
@@ -79,8 +92,9 @@ def test_request_multi_ticker_uses_batch_path():
 
 
 def test_chat_message_drives_single_path():
-    p1, p2, p3, p4 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4:
+    p1, p2, p3, p4, p5 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mg:
+        _smart_sequence(mg)
         m3.return_value.invoke.return_value = MagicMock(content="netral")
         m4.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
