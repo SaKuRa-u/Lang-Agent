@@ -22,7 +22,7 @@ $env:PYTHONUTF8="1"; .\.venv\Scripts\langgraph dev --port 8001 --no-browser --no
 - Ticker IDX wajib suffix `.JK` untuk `yfinance` (contoh `BBCA.JK`).
 - Bahasa output: Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
 - Test tanpa network/LLM: mock `get_llm` di namespace pemanggil
-  (`src.single_flow`, `src.agents.*`, `src.batch_graph`) dan tools di
+  (`src.agents.*`, `src.batch_graph`) dan tools di
   `src.tools.*` / `src.agents.*` (peringatan `from`-import).
 - Verdict BELI/TUNGGU/JANGAN dari `src/verdict.py:rule_verdict` (deterministik);
   LLM hanya narasi. Desain: `docs/DESIGN.md`.

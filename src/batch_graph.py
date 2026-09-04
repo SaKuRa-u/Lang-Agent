@@ -62,7 +62,12 @@ def scan_node(state: BatchState) -> dict:
 def rank_node(state: BatchState) -> dict:
     from src.budget import rank_for_risk
 
-    ranked = rank_for_risk(state.get("scanned", []), state.get("risk") or "moderat")
+    risk = state.get("risk") or "moderat"
+    # Jujur pada permintaan: sebut "dividen" -> ranking dividen-first,
+    # kecuali user eksplisit minta profil lain.
+    if risk == "moderat" and "DIVIDEN" in (state.get("request") or "").upper():
+        risk = "konservatif"
+    ranked = rank_for_risk(state.get("scanned", []), risk)
     return {"scanned": ranked, "ranked": [r["ticker"] for r in ranked]}
 
 

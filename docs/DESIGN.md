@@ -92,17 +92,20 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - Graph `src/batch_graph.py:batch_graph` tetap ada untuk reuse node + CLI `--batch`, tapi TIDAK didaftarkan di `langgraph.json` (Studio hanya tampilkan satu graph `agent`).
 - Bahasa Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
 
-## 11. Fase E — Supervisor LLM + memori thread
+## 11. Fase E — Handoffs deterministik + memori thread
 
-- `supervisor` (aturan history, deterministik) dipertahankan sebagai fallback;
-  routing live memakai `smart_supervisor`: 1 call LLM (`temperature=0`) per
-  putaran memilih news_collector/fundamental_analyst/sentiment_analyst/reporter/DONE.
-- Guard: maks 12 langkah -> END; output tak dikenal/error LLM -> fallback aturan.
+- Pelajaran riset pola LangGraph: urutan analis selalu tetap, jadi routing LLM
+  per langkah (dulu `smart_supervisor`) hanya membakar call tanpa nilai tambah
+  (anti-pola over-supervision). Diganti rantai handoffs tetap di
+  `src/single_flow.py:wire_single_flow` (news -> fundamental -> sentimen ->
+  reporter -> critic).
+- LLM tetap di titik yang bernilai: router entry (klasifikasi), sentimen,
+  reporter, critic. Aturan/fallback deterministik di sisanya.
 - `router` mencatat `last_request`: request baru di thread yang sama me-reset
   progres (fresh run); request sama melanjutkan state thread. Pesan tanpa ticker
   melanjutkan ticker thread bila ada, else mode `guide`.
-- `get_llm(temperature=...)` mendukung override (router pakai 0).
-- Test wajib mock `src.graph.get_llm` (tanpa network/LLM).
+- `get_llm(temperature=...)` mendukung override (writer pakai 0).
+- Test wajib mock `get_llm` di namespace pemanggil (tanpa network/LLM).
 
 ## 12. Fase F–J — Validator, critic, riset, regime, fitur Bibit
 
@@ -151,18 +154,14 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
   strategi tidak memukau secara absolut, tapi mengalahkan pasar yang turun;
   win-rate <50% mengingatkan risiko tetap dominan.
 
-## 15. Unifikasi supervisi (satu otak)
+## 15. Unifikasi supervisi (satu definisi alur)
 
 - Masalah: rantai batch (scan→rank→deepdive→summarize) jalan lurus tanpa
   supervisi; deepdive menduplikasi pipeline single; summarize tanpa critic.
 - Obat: `src/single_flow.py` satu-satunya definisi pipeline single
-  (supervisor loop + guard + fallback); graph utama dan deepdive batch
-  memakai ulang via `wire_single_flow` / subgraph (fundamental scan
-  dipakai ulang, berita fresh per pick).
+  (rantai handoffs, dipakai ulang graph utama + subgraph deepdive via
+  `wire_single_flow`); fundamental scan dipakai ulang, berita fresh per pick.
 - `review_batch_node` mengkritik ringkasan batch (konsistensi verdict,
   angka budget, label proyeksi, flag).
 - Guard `scan_has_data`: scan kosong/gagal semua -> `batch_abort` dengan
   penjelasan, bukan deepdive buta.
-- `smart_supervisor` mengabaikan pilihan yang sudah ada di history
-  (anti pengulangan oleh LLM yang bingung).
-- Test wajib mock `src.single_flow.get_llm` (bukan `src.graph.get_llm`).

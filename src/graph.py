@@ -1,12 +1,7 @@
 from src.state import StockState, normalize_ticker
 from src.tools.market import get_market_regime
 from src.universe import parse_batch_request, has_analysis_intent
-from src.single_flow import (
-    MAX_STEPS,
-    supervisor,
-    smart_supervisor,
-    wire_single_flow,
-)
+from src.single_flow import wire_single_flow
 from src.batch_graph import (
     scan_node,
     rank_node,
@@ -128,7 +123,7 @@ def route_mode(state: StockState) -> str:
         return "scan"
     if mode == "guide":
         return "guide"
-    return "supervisor"
+    return "news_collector"
 
 
 def guide(state: StockState) -> dict:
@@ -149,7 +144,7 @@ def build_graph(checkpointer=None, interrupt_before=()):
     g.set_entry_point("router")
     g.add_conditional_edges(
         "router", route_mode,
-        {"supervisor": "supervisor", "scan": "scan", "guide": "guide"},
+        {"news_collector": "news_collector", "scan": "scan", "guide": "guide"},
     )
     g.add_edge("guide", END)
     g.add_conditional_edges(

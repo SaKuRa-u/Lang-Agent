@@ -32,24 +32,12 @@ def _mock_single_chain():
         patch("src.agents.sentiment.get_llm"),
         patch("src.agents.reporter.get_llm"),
         patch("src.agents.critic.get_llm"),
-        patch("src.single_flow.get_llm"),
     )
 
 
-def _smart_sequence(mg):
-    mg.return_value.invoke.side_effect = [
-        MagicMock(content="news_collector"),
-        MagicMock(content="fundamental_analyst"),
-        MagicMock(content="sentiment_analyst"),
-        MagicMock(content="reporter"),
-        MagicMock(content="DONE"),
-    ]
-
-
 def test_request_single_ticker_uses_single_path():
-    p1, p2, p3, p4, p5, p6 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4, p5 as mc, p6 as mg:
-        _smart_sequence(mg)
+    p1, p2, p3, p4, p5 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mc:
         m3.return_value.invoke.return_value = MagicMock(content="netral")
         mc.return_value.invoke.return_value = MagicMock(
             content="KEYAKINAN: 70. VERDIK: SETUJU. Bukan nasihat finansial.")
@@ -63,9 +51,8 @@ def test_request_single_ticker_uses_single_path():
 
 
 def test_legacy_ticker_input_still_single():
-    p1, p2, p3, p4, p5, p6 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4, p5 as mc, p6 as mg:
-        _smart_sequence(mg)
+    p1, p2, p3, p4, p5 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mc:
         m3.return_value.invoke.return_value = MagicMock(content="netral")
         mc.return_value.invoke.return_value = MagicMock(
             content="KEYAKINAN: 70. VERDIK: SETUJU. Bukan nasihat finansial.")
@@ -92,14 +79,7 @@ def test_request_multi_ticker_uses_batch_path():
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
          patch("src.agents.critic.get_llm") as mc2, \
-         patch("src.single_flow.get_llm") as mg, \
          patch("src.batch_graph.get_llm") as m3:
-        mg.return_value.invoke.side_effect = [
-            MagicMock(content="news_collector"),
-            MagicMock(content="sentiment_analyst"),
-            MagicMock(content="reporter"),
-            MagicMock(content="DONE"),
-        ]
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
@@ -115,9 +95,8 @@ def test_request_multi_ticker_uses_batch_path():
 
 
 def test_chat_message_drives_single_path():
-    p1, p2, p3, p4, p5, p6 = _mock_single_chain()
-    with p1, p2, p3 as m3, p4 as m4, p5 as mc, p6 as mg:
-        _smart_sequence(mg)
+    p1, p2, p3, p4, p5 = _mock_single_chain()
+    with p1, p2, p3 as m3, p4 as m4, p5 as mc:
         m3.return_value.invoke.return_value = MagicMock(content="netral")
         mc.return_value.invoke.return_value = MagicMock(
             content="KEYAKINAN: 70. VERDIK: SETUJU. Bukan nasihat finansial.")

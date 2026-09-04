@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock, patch
+
 from src.state import normalize_ticker
-from src.graph import supervisor
+from src.graph import graph
 
 
 def test_normalize_ticker():
@@ -7,14 +9,36 @@ def test_normalize_ticker():
     assert normalize_ticker("BBCA.JK") == "BBCA.JK"
 
 
-def test_supervisor_routing():
-    base = {"ticker": "BBCA.JK", "news": [], "fundamentals": {}, "sentiment": "", "report": "", "recommendation": "", "history": [], "messages": []}
-    assert supervisor(base) == "news_collector"
-    s2 = {**base, "history": ["news_collector"]}
-    assert supervisor(s2) == "fundamental_analyst"
-    s3 = {**s2, "history": ["news_collector", "fundamental_analyst"]}
-    assert supervisor(s3) == "sentiment_analyst"
-    s4 = {**s3, "history": ["news_collector", "fundamental_analyst", "sentiment_analyst"]}
-    assert supervisor(s4) == "reporter"
-    s5 = {**s3, "history": ["news_collector", "fundamental_analyst", "sentiment_analyst", "reporter"]}
-    assert supervisor(s5) == "critic"
+def _base(**kw):
+    state = {"request": "", "ticker": "", "tickers": [], "top_n": 5,
+             "fallback": False, "risk": "moderat", "horizon_months": None,
+             "budget_monthly": None, "news": [], "fundamentals": {},
+             "flags": [], "regime": {}, "sentiment": "", "report": "",
+             "recommendation": "", "critique": "", "scanned": [],
+             "ranked": [], "picks": [], "summary": "", "batch_review": "",
+             "history": [], "messages": []}
+    state.update(kw)
+    return state
+
+
+def test_handoff_chain_runs_fixed_order():
+    """Rantai single deterministik: news -> fundamental -> sentimen ->
+    reporter -> critic, tanpa routing LLM."""
+    with patch("src.agents.news_collector.fetch_stock_news",
+               return_value=[{"title": "x"}]), \
+         patch("src.agents.fundamental.get_fundamentals",
+               return_value={"ticker": "BBCA.JK", "price": 100.0, "per": 10.0,
+                             "pbv": 1.5, "dividendYield": 0.05}), \
+         patch("src.agents.sentiment.get_llm") as m1, \
+         patch("src.agents.reporter.get_llm") as m2, \
+         patch("src.agents.critic.get_llm") as m3:
+        m1.return_value.invoke.return_value = MagicMock(content="netral")
+        m2.return_value.invoke.return_value = MagicMock(
+            content="Laporan BELI. Bukan nasihat finansial.")
+        m3.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU.")
+        out = graph.invoke(_base(request="analisa BBCA"))
+    assert out["history"] == ["news_collector", "fundamental_analyst",
+                              "sentiment_analyst", "reporter", "critic"]
+    assert out["recommendation"] == "BELI"
+    assert "SETUJU" in out["critique"]

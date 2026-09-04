@@ -1,7 +1,6 @@
-from unittest.mock import MagicMock, patch
-from langgraph.graph import END
+from unittest.mock import patch
 
-from src.graph import router, smart_supervisor
+from src.graph import router
 from src.universe import WATCHLIST, has_analysis_intent
 
 
@@ -22,34 +21,6 @@ def _base(**kw):
              "history": [], "messages": []}
     state.update(kw)
     return state
-
-
-def test_smart_routes_to_missing_worker():
-    with patch("src.single_flow.get_llm") as m:
-        m.return_value.invoke.return_value = MagicMock(content="fundamental_analyst")
-        nxt = smart_supervisor(_base(history=["news_collector"]))
-    assert nxt == "fundamental_analyst"
-
-
-def test_smart_garbage_falls_back_to_rule():
-    with patch("src.single_flow.get_llm") as m:
-        m.return_value.invoke.return_value = MagicMock(content="pisang goreng")
-        nxt = smart_supervisor(_base())
-    assert nxt == "news_collector"
-
-
-def test_smart_error_falls_back_to_rule():
-    with patch("src.single_flow.get_llm") as m:
-        m.return_value.invoke.side_effect = RuntimeError("9router down")
-        nxt = smart_supervisor(_base(history=["news_collector"]))
-    assert nxt == "fundamental_analyst"
-
-
-def test_smart_max_steps_ends_without_llm():
-    with patch("src.single_flow.get_llm") as m:
-        nxt = smart_supervisor(_base(history=["x"] * 12))
-    assert nxt == END
-    m.assert_not_called()
 
 
 def test_router_same_request_keeps_progress():
@@ -87,17 +58,23 @@ def test_router_analysis_intent_without_ticker_screens_watchlist():
     assert out["fallback"] is True
 
 
-def test_router_greeting_stays_guide():
-    assert not has_analysis_intent("halo, apa kabar?")
-    out = router(_base(request="halo, apa kabar?"))
-    assert out["mode"] == "guide"
+def test_router_vague_questions_do_not_trigger_blind_screening():
+    for msg in ["saham apa yang bagus saat ini?",
+                "Lakukan analisis terhadap klaim tersebut.",
+                "Saya ingin investasi tapi bingung mulai dari mana"]:
+        assert not has_analysis_intent(msg), msg
+        out = router(_base(request=msg))
+        assert out["mode"] == "guide", msg
 
 
-def test_smart_ignores_already_done_pick():
-    with patch("src.single_flow.get_llm") as m:
-        m.return_value.invoke.return_value = MagicMock(content="news_collector")
-        nxt = smart_supervisor(_base(history=["news_collector"]))
-    assert nxt == "fundamental_analyst"
+def test_router_explicit_screening_words_still_screen():
+    for msg in ["carikan yang dividennya bagus",
+                "mencari saham murah",
+                "tolong pilihkan 3 saham",
+                "rekomendasi portofolio dong"]:
+        assert has_analysis_intent(msg), msg
+        out = router(_base(request=msg))
+        assert out["mode"] == "batch", msg
 
 
 def test_request_text_prefers_newest_human_message():

@@ -20,18 +20,25 @@ LQ45 = [
 
 KNOWN = set(WATCHLIST) | set(LQ45)
 
-# Kata penanda niat analisa (substring, case-insensitive via upper).
+# Kata penanda niat screening eksplisit. WAJIB word-boundary (bukan substring):
+# "mencari" tidak boleh cocok "CARI", "penasaran" tidak boleh cocok "SARAN".
+# Sengaja SEMPIT: kata samar ("saham", "bagus", "analisis") TIDAK memicu
+# screening buta 12 emiten — pesan samar dijawab guide/klarifikasi.
 ANALYSIS_KEYWORDS = {
-    "ANALISA", "ANALISIS", "CARI", "BANDING", "PROYEKSI", "DIVIDEN",
-    "REKOMENDASI", "REKOMENDASIKAN", "SAHAM", "RINGKAS", "UNTUNG",
-    "KEUNTUNGAN", "BAGUS", "TERBAIK", "PILIH", "SARAN", "INVESTASI",
-    "STRATEGI", "BANDINGKAN", "SCREENING", "SCREENER",
+    "CARIKAN", "CARI", "MENCARI", "SCREENING", "SCREENER", "BANDINGKAN",
+    "PROYEKSI", "REKOMENDASI", "REKOMENDASIKAN", "SARAN", "PILIHKAN",
 }
+
+_SCREENING_RE = None
 
 
 def has_analysis_intent(text: str) -> bool:
-    t = (text or "").upper()
-    return any(kw in t for kw in ANALYSIS_KEYWORDS)
+    global _SCREENING_RE
+    if _SCREENING_RE is None:
+        import re as _re
+        _SCREENING_RE = _re.compile(
+            r"\b(" + "|".join(sorted(ANALYSIS_KEYWORDS)) + r")\b")
+    return bool(_SCREENING_RE.search((text or "").upper()))
 
 
 def parse_risk(text: str) -> str:

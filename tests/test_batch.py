@@ -58,14 +58,7 @@ def test_batch_end_to_end_mocked():
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
          patch("src.agents.critic.get_llm") as mc2, \
-         patch("src.single_flow.get_llm") as mg, \
          patch("src.batch_graph.get_llm") as m3:
-        mg.return_value.invoke.side_effect = [
-            MagicMock(content="news_collector"),
-            MagicMock(content="sentiment_analyst"),
-            MagicMock(content="reporter"),
-            MagicMock(content="DONE"),
-        ]
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
@@ -103,14 +96,7 @@ def test_deepdive_runs_critic_per_pick():
                return_value=[{"title": "x"}]), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
-         patch("src.agents.critic.get_llm") as mc2, \
-         patch("src.single_flow.get_llm") as mg:
-        mg.return_value.invoke.side_effect = [
-            MagicMock(content="news_collector"),
-            MagicMock(content="sentiment_analyst"),
-            MagicMock(content="reporter"),
-            MagicMock(content="DONE"),
-        ]
+         patch("src.agents.critic.get_llm") as mc2:
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
