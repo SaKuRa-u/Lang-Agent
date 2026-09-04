@@ -64,7 +64,7 @@ pilih graph **agent** → tab **Chat** → **+ New Thread** → ketik pesan bias
 Satu graph `agent` (`src/graph.py:graph`): `router` → mode `single`
 (`supervisor` LLM → news / fundamental / sentimen → `reporter` → `critic`)
 atau mode `batch` (`scan` → `rank` → `deepdive` → `summarize`), plus mode
-`guide`. Detail desain: `docs/superpowers/specs/2026-09-03-stock-multiagent-design.md`.
+`guide`. Detail desain: `docs/DESIGN.md`.
 
 ## Test
 

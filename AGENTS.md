@@ -1,23 +1,28 @@
-# AGENTS.md
+# AGENTS.md — Lang-Agent (IDX Stock Multi-Agent)
 
-## Agent skills
+Python 3.11+, LangGraph + LangGraph Studio, `langchain-openai`
+(ChatOpenAI ke endpoint OpenAI-compatible lokal), `yfinance`, `feedparser`,
+`python-dotenv`, `pytest`.
 
-### Issue tracker
+## Perintah
 
-Local markdown under `.scratch/`. See `docs/agents/issue-tracker.md`.
+```powershell
+.\.venv\Scripts\python -m pytest -q          # 59 test, semua mock (tanpa network/LLM)
+.\.venv\Scripts\python main.py BBCA.JK
+.\.venv\Scripts\python main.py --batch "analisa BBCA, BBRI top 3"
+.\.venv\Scripts\python main.py --backtest BBCA.JK BBRI.JK years=3
+$env:PYTHONUTF8="1"; .\.venv\Scripts\langgraph dev --port 8001 --no-browser --no-reload
+```
 
-### Triage labels
+## Konvensi
 
-Default 5 canonical labels. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context. See `docs/agents/domain.md`.
-
-## Project: Lang-Agent (IDX Stock Multi-Agent)
-
-- Stack: Python 3.11+, LangGraph + LangGraph Studio, `langchain-openai` (ChatOpenAI ke 9Router OpenAI-compatible), `yfinance`, `feedparser`, `python-dotenv`, `pytest`.
-- Engine: 9Router lokal `http://localhost:20128/v1`, model combo `Fer`. Jangan hardcode API key — pakai `.env` (`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME`).
-- Graph entry: `src/graph.py:graph`. Studio config: `langgraph.json`.
-- Bahasa output: Indonesia + disclaimer bukan nasihat finansial.
+- Graph entry: `src/graph.py:graph` (satu graph `agent`). Studio config: `langgraph.json`.
+- Kredensial hanya via `.env` (`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME`) —
+  jangan hardcode key/model, jangan commit `.env`. Contoh generik di `.env.example`.
 - Ticker IDX wajib suffix `.JK` untuk `yfinance` (contoh `BBCA.JK`).
+- Bahasa output: Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
+- Test tanpa network/LLM: mock `get_llm` di namespace pemanggil
+  (`src.graph`, `src.agents.*`, `src.batch_graph`) dan tools di
+  `src.tools.*` / `src.agents.*` (peringatan `from`-import).
+- Verdict BELI/TUNGGU/JANGAN dari `src/verdict.py:rule_verdict` (deterministik);
+  LLM hanya narasi. Desain: `docs/DESIGN.md`.
