@@ -14,7 +14,7 @@ def _no_regime():
 
 def test_hitl_graph_pauses_before_reporter():
     with patch("src.agents.sentiment.get_llm"), patch("src.agents.reporter.get_llm"), \
-         patch("src.graph.get_llm") as mg:
+         patch("src.single_flow.get_llm") as mg:
         mg.return_value.invoke.side_effect = [
             MagicMock(content="sentiment_analyst"),
             MagicMock(content="reporter"),
@@ -34,7 +34,7 @@ def test_cli_resume_keeps_thread_id(monkeypatch, tmp_path, capsys):
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
          patch("src.agents.critic.get_llm") as m3, \
-         patch("src.graph.get_llm") as mg:
+         patch("src.single_flow.get_llm") as mg:
         mg.return_value.invoke.side_effect = [
             MagicMock(content="news_collector"),
             MagicMock(content="fundamental_analyst"),

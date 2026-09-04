@@ -11,10 +11,6 @@ from src.state import normalize_ticker
 from src.universe import parse_batch_request
 from src.scoring import score_fundamentals
 from src.tools import market as market_mod
-from src.tools import news as news_mod
-from src.agents.sentiment import sentiment_analyst
-from src.agents.reporter import reporter
-from src.agents.critic import critic as critic_agent
 from src.llm import get_llm
 
 DISCLAIMER = "Bukan nasihat finansial. Lakukan riset mandiri."
@@ -33,6 +29,7 @@ class BatchState(TypedDict):
     ranked: list[str]
     picks: list[dict]
     summary: str
+    batch_review: str
     messages: Annotated[list[AnyMessage], add_messages]
 
 
@@ -69,21 +66,47 @@ def rank_node(state: BatchState) -> dict:
     return {"scanned": ranked, "ranked": [r["ticker"] for r in ranked]}
 
 
+def scan_has_data(state: BatchState) -> bool:
+    """Guard: lanjut rank hanya bila ada baris berskor valid."""
+    scanned = state.get("scanned", [])
+    return bool(scanned) and any(
+        r.get("score", float("-inf")) != float("-inf") for r in scanned)
+
+
+def batch_abort_node(state: BatchState) -> dict:
+    text = ("Tidak ada data valid untuk dianalisa (semua ticker gagal diambil "
+            "atau tak dikenal). Sebutkan ticker IDX yang valid (cth BBCA, BBRI) "
+            "atau universe seperti LQ45. Bukan nasihat finansial.")
+    return {"summary": text, "messages": [AIMessage(content=text)]}
+
+
+_single_subgraph = None
+
+
+def _single():
+    global _single_subgraph
+    if _single_subgraph is None:
+        from src.single_flow import build_single_subgraph
+        _single_subgraph = build_single_subgraph()
+    return _single_subgraph
+
+
 def _deepdive_one(row: dict, regime=None) -> dict:
-    """Analisa penuh 1 finalis: berita + sentimen + reporter + critic."""
-    sub = {
+    """Analisa 1 finalis via subgraph single yang SAMA dengan jalur single.
+
+    Fundamental hasil scan dipakai ulang (history di-seed agar tak refetch);
+    berita diambil fresh oleh news_collector di dalam subgraph.
+    """
+    sub = _single().invoke({
         "ticker": row["ticker"], "news": [], "fundamentals": row["fundamentals"],
         "flags": row.get("flags", []), "regime": regime or {},
         "sentiment": "", "report": "", "recommendation": "",
-        "critique": "", "history": [], "messages": [],
-    }
-    sub["news"] = news_mod.fetch_stock_news(row["ticker"])
-    sub.update(sentiment_analyst(sub))
-    sub.update(reporter(sub))
-    sub.update(critic_agent(sub))
+        "critique": "", "history": ["fundamental_analyst"], "messages": [],
+    })
     return {
-        "ticker": row["ticker"], "report": sub["report"],
-        "recommendation": sub["recommendation"], "critique": sub["critique"],
+        "ticker": row["ticker"], "report": sub.get("report", ""),
+        "recommendation": sub.get("recommendation", ""),
+        "critique": sub.get("critique", ""),
         "score": row["score"], "reasons": row["reasons"],
         "flags": row.get("flags", []),
     }
@@ -195,6 +218,26 @@ def summarize_node(state: BatchState) -> dict:
     return {"summary": summary, "messages": [AIMessage(content=summary)]}
 
 
+def review_batch_node(state: BatchState) -> dict:
+    """Critic level batch: periksa ringkasan sebelum disajikan."""
+    llm = get_llm(temperature=0)
+    prompt = (
+        "Kamu reviewer laporan batch saham IDX (Bahasa Indonesia). Periksa:\n"
+        "1) tiap pick konsisten dengan verdict guardrail + tabel;\n"
+        "2) angka budget/dana minimal masuk akal;\n"
+        "3) proyeksi berlabel ilustrasi, bukan janji;\n"
+        "4) flag data disebut.\n"
+        "Balas: 'REVIEW: lolos' atau 'REVIEW: bermasalah' + temuan "
+        "(maks 5 bullet).\n\n"
+        f"LAPORAN:\n{state.get('summary', '')[:4000]}"
+    )
+    try:
+        text = str(llm.invoke(prompt).content)
+    except Exception:
+        text = "REVIEW: dilewati (LLM tidak tersedia)."
+    return {"batch_review": text, "messages": [AIMessage(content=text)]}
+
+
 def build_batch_graph():
     g = StateGraph(BatchState)
     g.add_node("parse", parse_node)
@@ -202,12 +245,16 @@ def build_batch_graph():
     g.add_node("rank", rank_node)
     g.add_node("deepdive", deepdive_node)
     g.add_node("summarize", summarize_node)
+    g.add_node("review_batch", review_batch_node)
+    g.add_node("batch_abort", batch_abort_node)
     g.set_entry_point("parse")
     g.add_edge("parse", "scan")
-    g.add_edge("scan", "rank")
+    g.add_conditional_edges("scan", scan_has_data, {True: "rank", False: "batch_abort"})
+    g.add_edge("batch_abort", END)
     g.add_edge("rank", "deepdive")
     g.add_edge("deepdive", "summarize")
-    g.add_edge("summarize", END)
+    g.add_edge("summarize", "review_batch")
+    g.add_edge("review_batch", END)
     return g.compile()
 
 

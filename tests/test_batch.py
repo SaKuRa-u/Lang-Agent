@@ -53,15 +53,24 @@ def test_batch_end_to_end_mocked():
 
     funds = {"BBCA.JK": _fund((100, 8)), "BBRI.JK": _fund((100, 40))}
     with patch("src.tools.market.get_fundamentals", side_effect=lambda t: funds[t]), \
-         patch("src.tools.news.fetch_stock_news", return_value=[{"title": "x"}]), \
+         patch("src.agents.news_collector.fetch_stock_news",
+               return_value=[{"title": "x"}]), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
-         patch("src.batch_graph.critic_agent") as mc, \
+         patch("src.agents.critic.get_llm") as mc2, \
+         patch("src.single_flow.get_llm") as mg, \
          patch("src.batch_graph.get_llm") as m3:
+        mg.return_value.invoke.side_effect = [
+            MagicMock(content="news_collector"),
+            MagicMock(content="sentiment_analyst"),
+            MagicMock(content="reporter"),
+            MagicMock(content="DONE"),
+        ]
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
-        mc.return_value = {"critique": "kritis"}
+        mc2.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU.")
         m3.return_value.invoke.return_value = MagicMock(
             content="Ringkasan. Bukan nasihat finansial.")
         out = batch_graph.invoke({
@@ -90,17 +99,26 @@ def test_deepdive_runs_critic_per_pick():
            "flags": [],
            "fundamentals": {"ticker": "BBCA.JK", "price": 100.0, "per": 10.0,
                             "pbv": 1.5, "dividendYield": 0.05}}
-    with patch("src.tools.news.fetch_stock_news",
+    with patch("src.agents.news_collector.fetch_stock_news",
                return_value=[{"title": "x"}]), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
-         patch("src.batch_graph.critic_agent") as mc:
+         patch("src.agents.critic.get_llm") as mc2, \
+         patch("src.single_flow.get_llm") as mg:
+        mg.return_value.invoke.side_effect = [
+            MagicMock(content="news_collector"),
+            MagicMock(content="sentiment_analyst"),
+            MagicMock(content="reporter"),
+            MagicMock(content="DONE"),
+        ]
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
-        mc.side_effect = lambda s: {"critique": f"kritis {s['ticker']}"}
+        mc2.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU.")
         out = deepdive_node({"scanned": [row], "top_n": 5, "regime": {}})
-    assert out["picks"][0]["critique"] == "kritis BBCA.JK"
+    assert out["picks"][0]["critique"] != ""
+    assert out["picks"][0]["ticker"] == "BBCA.JK"
 
 
 def test_summarize_prompt_answers_user_request():
@@ -124,3 +142,29 @@ def test_summarize_prompt_answers_user_request():
     assert "Hist 1thn" in prompt and "ekstrapolasi" in prompt
     assert "JANGAN janjikan return" in prompt
     assert out["summary"] == "Ringkasan."
+
+
+def test_scan_abort_on_no_valid_data():
+    from src.batch_graph import batch_graph
+
+    with patch("src.tools.market.get_fundamentals",
+               return_value={"ticker": "X.JK", "error": "down"}):
+        out = batch_graph.invoke({
+            "request": "analisa BBCA BBRI top 1", "tickers": [], "top_n": 5,
+            "fallback": False, "risk": "moderat", "horizon_months": None,
+            "budget_monthly": None, "scanned": [], "ranked": [],
+            "picks": [], "summary": "", "batch_review": "", "messages": [],
+        })
+    assert "Tidak ada data valid" in out["summary"]
+    assert out["picks"] == []
+
+
+def test_review_batch_flags_issues():
+    from src.batch_graph import review_batch_node
+
+    with patch("src.batch_graph.get_llm") as m:
+        m.return_value.invoke.return_value = MagicMock(
+            content="REVIEW: bermasalah - proyeksi tanpa label.")
+        out = review_batch_node({"summary": "Ringkasan BELI semua."})
+    assert out["batch_review"].startswith("REVIEW:")
+    assert out["messages"][-1].type == "ai"

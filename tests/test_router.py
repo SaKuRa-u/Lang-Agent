@@ -32,7 +32,7 @@ def _mock_single_chain():
         patch("src.agents.sentiment.get_llm"),
         patch("src.agents.reporter.get_llm"),
         patch("src.agents.critic.get_llm"),
-        patch("src.graph.get_llm"),
+        patch("src.single_flow.get_llm"),
     )
 
 
@@ -87,16 +87,24 @@ def test_request_multi_ticker_uses_batch_path():
                          "ma50": 200, "ma200": None, "name": "B"}}
     with patch("src.tools.market.get_fundamentals",
                side_effect=lambda t: funds[t]), \
-         patch("src.tools.news.fetch_stock_news",
+         patch("src.agents.news_collector.fetch_stock_news",
                return_value=[{"title": "x"}]), \
          patch("src.agents.sentiment.get_llm") as m1, \
          patch("src.agents.reporter.get_llm") as m2, \
-         patch("src.batch_graph.critic_agent") as mc, \
+         patch("src.agents.critic.get_llm") as mc2, \
+         patch("src.single_flow.get_llm") as mg, \
          patch("src.batch_graph.get_llm") as m3:
+        mg.return_value.invoke.side_effect = [
+            MagicMock(content="news_collector"),
+            MagicMock(content="sentiment_analyst"),
+            MagicMock(content="reporter"),
+            MagicMock(content="DONE"),
+        ]
         m1.return_value.invoke.return_value = MagicMock(content="netral")
         m2.return_value.invoke.return_value = MagicMock(
             content="Laporan BELI. Bukan nasihat finansial.")
-        mc.return_value = {"critique": "kritis"}
+        mc2.return_value.invoke.return_value = MagicMock(
+            content="KEYAKINAN: 70. VERDIK: SETUJU.")
         m3.return_value.invoke.return_value = MagicMock(
             content="Ringkasan. Bukan nasihat finansial.")
         out = graph.invoke(_base(request="analisa BBCA BBRI top 1"))

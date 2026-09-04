@@ -1,18 +1,25 @@
 from src.state import StockState, normalize_ticker
-from src.llm import get_llm
-from src.agents.news_collector import news_collector
-from src.agents.fundamental import fundamental_analyst
-from src.agents.sentiment import sentiment_analyst
-from src.agents.reporter import reporter
-from src.agents.critic import critic
-from src.universe import parse_batch_request, has_analysis_intent
 from src.tools.market import get_market_regime
-from src.batch_graph import scan_node, rank_node, deepdive_node, summarize_node
+from src.universe import parse_batch_request, has_analysis_intent
+from src.single_flow import (
+    MAX_STEPS,
+    supervisor,
+    smart_supervisor,
+    wire_single_flow,
+)
+from src.batch_graph import (
+    scan_node,
+    rank_node,
+    deepdive_node,
+    summarize_node,
+    review_batch_node,
+    scan_has_data,
+    batch_abort_node,
+)
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import AIMessage
 
 DEFAULT_TICKER = "BBCA.JK"
-MAX_STEPS = 12
 SINGLE_FRESH = {"news": [], "fundamentals": {}, "flags": [], "sentiment": "",
                 "report": "", "recommendation": "", "critique": ""}
 BATCH_FRESH = {"scanned": [], "ranked": [], "picks": [], "summary": ""}
@@ -128,73 +135,17 @@ def guide(state: StockState) -> dict:
     return {"messages": [AIMessage(content=GUIDE_TEXT)]}
 
 
-def supervisor(state: StockState) -> str:
-    """Aturan deterministik (fallback bila LLM router gagal/di-bypass)."""
-    done = set(state.get("history", []))
-    if "news_collector" not in done:
-        return "news_collector"
-    if "fundamental_analyst" not in done:
-        return "fundamental_analyst"
-    if "sentiment_analyst" not in done:
-        return "sentiment_analyst"
-    if "reporter" not in done:
-        return "reporter"
-    if "critic" not in done:
-        return "critic"
-    return END
-
-
-def smart_supervisor(state: StockState) -> str:
-    """Supervisor LLM: memutuskan langkah berikut dari state.
-
-    Guard: maks MAX_STEPS langkah -> END. Gagal parse/error LLM ->
-    fallback aturan deterministik. Satu-satunya keputusan dinamis di graph.
-    """
-    hist = state.get("history", [])
-    if len(hist) >= MAX_STEPS:
-        return END
-    llm = get_llm(temperature=0)
-    fund = state.get("fundamentals", {})
-    prompt = (
-        "Kamu router analis saham. Balas HANYA satu kata: news_collector, "
-        "fundamental_analyst, sentiment_analyst, reporter, atau DONE.\n"
-        f"Request: {state.get('request') or state.get('ticker', '')}\n"
-        f"Selesai: {', '.join(hist) if hist else '(belum ada)'}\n"
-        f"Data: berita={len(state.get('news', []))} item, "
-        f"fundamental={'error' if fund.get('error') else ('ada' if fund else 'belum')}, "
-        f"sentimen={'ada' if state.get('sentiment') else 'belum'}, "
-        f"laporan={'ada' if state.get('report') else 'belum'}.\n"
-        "Aturan: kumpulkan berita + fundamental + sentimen dulu (lewati yang "
-        "error/bermasalah), lalu reporter tepat sekali, lalu DONE. "
-        "(Node critic berjalan otomatis setelah reporter.)"
-    )
-    try:
-        out = str(llm.invoke(prompt).content).strip().lower()
-    except Exception:
-        return supervisor(state)
-    for cand in ("news_collector", "fundamental_analyst",
-                 "sentiment_analyst", "reporter"):
-        if cand in out:
-            return cand
-    if any(w in out for w in ("done", "selesai", "end", "finish")):
-        return END
-    return supervisor(state)
-
-
 def build_graph(checkpointer=None, interrupt_before=()):
     g = StateGraph(StockState)
     g.add_node("router", router)
     g.add_node("guide", guide)
-    g.add_node("supervisor", lambda s: {})
-    g.add_node("news_collector", news_collector)
-    g.add_node("fundamental_analyst", fundamental_analyst)
-    g.add_node("sentiment_analyst", sentiment_analyst)
-    g.add_node("reporter", reporter)
-    g.add_node("critic", critic)
+    wire_single_flow(g)
     g.add_node("scan", scan_node)
     g.add_node("rank", rank_node)
     g.add_node("deepdive", deepdive_node)
     g.add_node("summarize", summarize_node)
+    g.add_node("review_batch", review_batch_node)
+    g.add_node("batch_abort", batch_abort_node)
     g.set_entry_point("router")
     g.add_conditional_edges(
         "router", route_mode,
@@ -202,25 +153,14 @@ def build_graph(checkpointer=None, interrupt_before=()):
     )
     g.add_edge("guide", END)
     g.add_conditional_edges(
-        "supervisor",
-        smart_supervisor,
-        {
-            "news_collector": "news_collector",
-            "fundamental_analyst": "fundamental_analyst",
-            "sentiment_analyst": "sentiment_analyst",
-            "reporter": "reporter",
-            "critic": "critic",
-            END: END,
-        },
+        "scan", scan_has_data,
+        {True: "rank", False: "batch_abort"},
     )
-    for n in ["news_collector", "fundamental_analyst", "sentiment_analyst"]:
-        g.add_edge(n, "supervisor")
-    g.add_edge("reporter", "critic")
-    g.add_edge("critic", "supervisor")
-    g.add_edge("scan", "rank")
+    g.add_edge("batch_abort", END)
     g.add_edge("rank", "deepdive")
     g.add_edge("deepdive", "summarize")
-    g.add_edge("summarize", END)
+    g.add_edge("summarize", "review_batch")
+    g.add_edge("review_batch", END)
     return g.compile(checkpointer=checkpointer, interrupt_before=interrupt_before)
 
 

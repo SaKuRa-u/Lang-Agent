@@ -46,5 +46,6 @@ class StockState(TypedDict, total=False):
     ranked: list[str]
     picks: list[dict]
     summary: str
+    batch_review: str
     history: list[str]
     messages: Annotated[list[AnyMessage], add_messages]

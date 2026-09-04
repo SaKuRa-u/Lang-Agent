@@ -150,3 +150,19 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - Hasil sampel nyata: BELI agregat rata2 -0.1% (win 43%) vs IHSG -5.7% —
   strategi tidak memukau secara absolut, tapi mengalahkan pasar yang turun;
   win-rate <50% mengingatkan risiko tetap dominan.
+
+## 15. Unifikasi supervisi (satu otak)
+
+- Masalah: rantai batch (scan→rank→deepdive→summarize) jalan lurus tanpa
+  supervisi; deepdive menduplikasi pipeline single; summarize tanpa critic.
+- Obat: `src/single_flow.py` satu-satunya definisi pipeline single
+  (supervisor loop + guard + fallback); graph utama dan deepdive batch
+  memakai ulang via `wire_single_flow` / subgraph (fundamental scan
+  dipakai ulang, berita fresh per pick).
+- `review_batch_node` mengkritik ringkasan batch (konsistensi verdict,
+  angka budget, label proyeksi, flag).
+- Guard `scan_has_data`: scan kosong/gagal semua -> `batch_abort` dengan
+  penjelasan, bukan deepdive buta.
+- `smart_supervisor` mengabaikan pilihan yang sudah ada di history
+  (anti pengulangan oleh LLM yang bingung).
+- Test wajib mock `src.single_flow.get_llm` (bukan `src.graph.get_llm`).
