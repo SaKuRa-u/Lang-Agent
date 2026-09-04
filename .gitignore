@@ -2,10 +2,8 @@ __pycache__/
 .pytest_cache/
 .venv/
 .env
-langgraph_api/
 *.pyc
 
 *.egg-info/
 *.sqlite*
-.superpowers/
 .langgraph_api/

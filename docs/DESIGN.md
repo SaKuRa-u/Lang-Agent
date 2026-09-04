@@ -66,26 +66,20 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 
 ## 8. Testing
 
-- `pytest tests/test_tools.py` dengan mock `yfinance` + `feedparser`.
-- `pytest tests/test_graph.py -k live` opsional live BBCA.JK (butuh 9Router nyala + internet).
+- `.\.venv\Scripts\python -m pytest -q` — 59 test, semua mock tanpa network/LLM
+  (mock `get_llm` di namespace pemanggil; tools `yfinance`/`feedparser` di-mock).
+- Live opsional: `python main.py BBCA.JK` (butuh 9Router nyala + internet).
 - Struktur: `src/graph.py`, `src/state.py`, `src/llm.py`, `src/agents/`, `src/tools/`, `tests/`.
 
-## 9. Self-review
-
-- Placeholder scan: tidak ada TBD/TODO.
-- Konsistensi: state field dipakai semua agen; ticker `.JK` konsisten; env names konsisten dengan `.env.example` + `llm.py`.
-- Scope: v1 tanpa HITL/memory, sesuai keputusan A. Upgrade C terpisah.
-- Ambiguitas: sumber "gratis saja" di-lock ke yfinance+RSS, bukan Tavily/NewsAPI.
-
-## 10. Fase C — HITL + Memory
+## 9. Fase C — HITL + Memory
 
 - Checkpointer: `src/graph.py:build_hitl_graph(db_path="checkpoints.sqlite")` memakai `SqliteSaver` (sqlite); `graph = build_graph()` tanpa checkpointer agar Studio aman.
 - Interrupt: `build_graph(checkpointer, interrupt_before=["reporter"])` pause sebelum node `reporter`; resume via `g.invoke(None, config=cfg)`.
 - `thread_id` = ticker ternormalisasi `.JK` (cth `BBCA.JK`); memory/history terisolasi per ticker.
 - CLI: `python main.py BBCA.JK --hitl` tampilkan sentimen + fundamental, prompt `lanjut ke rekomendasi? [y/n]`; `y` resume dengan `thread_id` sama, `n` batal.
 - Studio: graph `agent` (`./src/graph.py:graph`, `langgraph.json` tidak berubah) jalan tanpa interrupt/checkpointer — eksplorasi tanpa pause.
-- Artefak `*.sqlite*` ter-gitignore; jangan commit `.env`, checkpoints, atau `.superpowers/`.
-## 11. Fase D — Batch mode (multi-ticker, SATU graph)
+- Artefak `*.sqlite*` ter-gitignore; jangan commit `.env` atau checkpoints.
+## 10. Fase D — Batch mode (multi-ticker, SATU graph)
 
 - Satu pintu via `request`/messages + node `router` di `src/graph.py` (bukan graph terpisah):
   request 0-1 ticker (atau input lawas `ticker` langsung) -> jalur single (supervisor);
@@ -97,7 +91,7 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - Graph `src/batch_graph.py:batch_graph` tetap ada untuk reuse node + CLI `--batch`, tapi TIDAK didaftarkan di `langgraph.json` (Studio hanya tampilkan satu graph `agent`).
 - Bahasa Indonesia + footer "Bukan nasihat finansial. Lakukan riset mandiri."
 
-## 12. Fase E — Supervisor LLM + memori thread
+## 11. Fase E — Supervisor LLM + memori thread
 
 - `supervisor` (aturan history, deterministik) dipertahankan sebagai fallback;
   routing live memakai `smart_supervisor`: 1 call LLM (`temperature=0`) per
@@ -109,7 +103,7 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 - `get_llm(temperature=...)` mendukung override (router pakai 0).
 - Test wajib mock `src.graph.get_llm` (tanpa network/LLM).
 
-## 13. Fase F–J — Validator, critic, riset, regime, fitur Bibit
+## 12. Fase F–J — Validator, critic, riset, regime, fitur Bibit
 
 - F: `market.get_fundamentals` sanitasi NaN (close non-NaN terakhir + fallback
   currentPrice); `src/validate.py:validate_row` hasilkan flags (harga hilang,
@@ -131,7 +125,7 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
   menyajikan blok alokasi + dana minimal. Reksadana/fraksional hanya
   alternatif edukatif (tanpa data live).
 
-## 14. Verdict deterministik + tanggal data
+## 13. Verdict deterministik + tanggal data
 
 - Masalah: verdict LLM flip-flop antar run (ASII BELI lalu TUNGGU).
 - Obat: `src/verdict.py:rule_verdict` (murni, di-test) — skor>=5 & bersih &
@@ -143,7 +137,7 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
   di laporan agar run bisa dibandingkan; reporter/critic/summarize pakai
   temperature 0.
 
-## 15. Backtest walk-forward (tanpa lookahead)
+## 14. Backtest walk-forward (tanpa lookahead)
 
 - `src/backtest.py`: keputusan tiap kuartal memakai HANYA data <= T
   (`features_at` dari `close[:T]`); verdict via `rule_verdict` yang sama
