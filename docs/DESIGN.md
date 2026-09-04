@@ -43,8 +43,9 @@ Ticker dinormalisasi ke `.JK` (contoh `BBCA` -> `BBCA.JK`).
 
 ## 5. 9Router / LLM
 
-- `src/llm.py:get_llm()`: `ChatOpenAI(base_url=os.getenv("OPENAI_BASE_URL"), api_key=os.getenv("OPENAI_API_KEY"), model=os.getenv("MODEL_NAME", "Fer"), temperature=0.2)`.
-- `.env`: `OPENAI_BASE_URL=http://localhost:20128/v1`, `OPENAI_API_KEY=...`, `MODEL_NAME=Fer`. Jangan commit `.env`.
+- `src/llm.py:get_llm(temperature=...)`: `ChatOpenAI` ke `OPENAI_BASE_URL` /
+  `OPENAI_API_KEY` / `MODEL_NAME` dari environment (router + writer pakai 0).
+- `.env`: tiga variabel di atas (lihat `.env.example`). Jangan commit `.env`.
 
 ## 6. LangGraph Studio
 

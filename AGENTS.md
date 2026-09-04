@@ -26,3 +26,4 @@ $env:PYTHONUTF8="1"; .\.venv\Scripts\langgraph dev --port 8001 --no-browser --no
   `src.tools.*` / `src.agents.*` (peringatan `from`-import).
 - Verdict BELI/TUNGGU/JANGAN dari `src/verdict.py:rule_verdict` (deterministik);
   LLM hanya narasi. Desain: `docs/DESIGN.md`.
+- Ingatan proyek: `MEMORY.md` (baca dulu). Masalah lampau: `docs/TROUBLESHOOTING.md`.
